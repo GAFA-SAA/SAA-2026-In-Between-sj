@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GAFA SAA 2026 | Mobile Vision System</title>
+    
+    <!-- 引入基础库 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        /* === 共有基础样式 === */
+        :root {
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --nav-height: 65px;
+        }
+
+        body {
+            background-color: #050505;
+            color: #ededed;
+            font-family: "PingFang SC", "Microsoft YaHei", 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            touch-action: none;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 0px; height: 0px; }
+        .custom-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+        /* === 极致高光磨砂玻璃材质系统 (终极优化版) === */
+        .glass-panel {
+            background: rgba(30, 30, 35, 0.5); 
+            backdrop-filter: blur(40px) saturate(200%);
+            -webkit-backdrop-filter: blur(40px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.25); 
+            border-left-color: rgba(255, 255, 255, 0.15); 
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+        
+        .glass-inner {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top-color: rgba(255, 255, 255, 0.15);
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05), 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .glass-inner:active { background: rgba(255, 255, 255, 0.1); }
+
+        .glass-active-slider {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-dropdown {
+            background: rgba(20, 20, 25, 0.85); 
+            backdrop-filter: blur(50px) saturate(220%);
+            -webkit-backdrop-filter: blur(50px) saturate(220%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-top-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+
+        /* === 首页专属强化版雾面磨砂玻璃 (Matte Glass) === */
+        .matte-glass-card {
+            background-color: rgba(30, 30, 35, 0.45);
+            background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.0) 100%);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top-color: rgba(255, 255, 255, 0.35);
+            border-left-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .matte-glass-card:active {
+            background-color: rgba(45, 45, 50, 0.55);
+            transform: scale(0.97);
+        }
+
+        /* 动画 */
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { opacity: 0; transform: translateY(30px); animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+
+        /* === 动态底部抽屉 (Bottom Sheet) 样式 === */
+        .bottom-sheet {
+            position: absolute;
+            bottom: calc(var(--nav-height) + var(--safe-bottom));
+            left: 0;
+            width: 100%;
+            z-index: 40;
+            will-change: transform;
+            pointer-events: auto;
+            transform: translateY(100%); 
+        }
+        .drag-handle { touch-action: none; cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+        
+        .sheet-content {
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 移动端专属画布适配 */
+        .workspace-bg {
+            background-color: rgba(15, 15, 18, 0.45); 
+            background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; padding: 10px 0; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+        input[type=range]::-webkit-slider-thumb { height: 20px; width: 20px; border-radius: 50%; background: #ffffff; -webkit-appearance: none; margin-top: -8px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+        
+        @keyframes pulse-record { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .recording-active { animation: pulse-record 1.5s infinite; border-color: rgba(239, 68, 68, 0.5) !important; background-color: rgba(239, 68, 68, 0.15) !important; color: #ff8a8a !important; }
+
+        #a2_webcam, #a2_tracking-canvas { transform: scaleX(-1); }
+        .loader-ring { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #fff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* 沉浸模式 (隐藏UI元素) */
+        body.immersive-mode header,
+        body.immersive-mode #mobile-bottom-nav { transform: translateY(-150%); opacity: 0; pointer-events: none; }
+        body.immersive-mode #mobile-bottom-nav { transform: translateY(150%); }
+        body.immersive-mode .bottom-sheet { transform: translateY(150%) !important; opacity: 0; }
+        
+        /* 退出沉浸按钮 (严格右上角自适应，规避所有屏幕刘海/边角) */
+        #a2_exitImmersiveBtn, #a3_exitImmersiveBtn {
+            position: fixed;
+            top: max(24px, env(safe-area-inset-top, 24px));
+            right: max(24px, env(safe-area-inset-right, 24px));
+            left: auto;
+            opacity: 0; 
+            pointer-events: none; 
+            transform: translateY(-20px);
+            transition: all 0.5s ease;
+            z-index: 100;
+        }
+        body.immersive-mode #a2_exitImmersiveBtn, body.immersive-mode #a3_exitImmersiveBtn { 
+            opacity: 1; pointer-events: auto; transform: translateY(0); 
+        }
+        body.immersive-mode #a2_exitImmersiveBtn.idle-hidden, body.immersive-mode #a3_exitImmersiveBtn.idle-hidden { 
+            opacity: 0; pointer-events: none; transform: translateY(-10px); transition: all 1.5s ease; 
+        }
+    </style>
+</head>
+<body class="h-[100dvh] w-full overflow-hidden m-0 relative bg-[#050505]">
+
+    <!-- 底层深邃宇宙漂浮层 -->
+    <canvas id="globalBgCanvas" class="fixed inset-0 w-full h-full pointer-events-none z-[-1]"></canvas>
+
+    <!-- 顶部导航 (Header) 修复盒模型导致的横向溢出问题 -->
+    <header class="absolute top-0 left-0 w-full glass-panel flex items-center justify-between z-50 rounded-none transition-all duration-500 box-border border-b-0" style="height: calc(60px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); padding-left: max(16px, env(safe-area-inset-left, 16px)); padding-right: max(16px, env(safe-area-inset-right, 16px));">
+        <!-- Logo区 -->
+        <div class="flex items-center gap-2 cursor-pointer active:opacity-60 transition-opacity shrink-0" onclick="window.switchSystemModule('home')">
+            <svg viewBox="0 0 100 100" class="w-7 h-7 drop-shadow-lg" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 75 50 Q 95 45 85 30 Q 82 45 70 45 Z" fill="#fc5420" />
+                <ellipse cx="50" cy="65" rx="42" ry="18" fill="#2562e9" transform="rotate(-10 50 65)" />
+                <path d="M 22 72 Q 50 85 75 70" fill="none" stroke="#fc5420" stroke-width="8" stroke-dasharray="12 12" />
+                <g transform="translate(0, -15) rotate(-25 50 50)">
+                    <ellipse cx="50" cy="50" rx="42" ry="16" fill="#f906c3" />
+                    <ellipse cx="50" cy="50" rx="26" ry="10" fill="#37bcf6" />
+                    <ellipse cx="50" cy="50" rx="12" ry="4" fill="#f906c3" />
+                </g>
+            </svg>
+            <h1 class="text-sm font-semibold tracking-tight text-white flex items-center gap-1">
+                GAFA SAA <span class="text-white/60 font-normal">2026</span>
+            </h1>
+        </div>
+
+        <!-- 动作按钮区 -->
+        <div class="flex items-center justify-end gap-2 shrink-0">
+            <!-- 首页 切换电脑版按钮 -->
+            <div id="home_action_wrapper">
+                <a href="https://artidrop.ai/a/yWXSOyi5FV" class="px-3 py-1.5 glass-inner text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 active:scale-95 no-underline shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>电脑版</span>
+                </a>
+            </div>
+            <!-- App1 按钮 -->
+            <div id="a1_action_wrapper" class="hidden">
+                <button id="a1_mainActionBtn" class="hidden px-3 py-1.5 glass-inner text-white rounded-full text-xs font-medium transition-all flex items-center gap-1.5 active:scale-95">
+                    <svg id="a1_btnIconDownload" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <svg id="a1_btnIconZip" class="hidden" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V3h13l5 5z"/><path d="M10 12v-2"/><path d="M10 16v-2"/><path d="M10 8V6"/></svg>
+                    <div id="a1_btnIconRecord" class="hidden w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
+                    <span id="a1_btnText" class="truncate max-w-[80px]">导出</span>
+                </button>
+            </div>
+            <!-- App2/3 沉浸按钮 (进入全屏) -->
+            <div id="a2_action_wrapper" class="hidden">
+                <button id="a2_fullscreenBtn" class="w-8 h-8 rounded-full glass-inner text-white flex items-center justify-center active:scale-90 transition-transform shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                </button>
+            </div>
+            <div id="a3_action_wrapper" class="hidden">
+                <button id="a3_fullscreenBtn" class="w-8 h-8 rounded-full glass-inner text-white flex items-center justify-center active:scale-90 transition-transform shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="absolute inset-0 w-full h-full overflow-hidden z-10 pt-[60px] pb-[calc(var(--nav-height)+var(--safe-bottom))]">
+
+        <!-- === APP 0: 首页 (Mobile) === -->
+        <div id="module-home" class="absolute inset-0 w-full h-full flex flex-col items-center pt-[100px] pb-32 overflow-y-auto custom-scrollbar sheet-content z-30">
+            <!-- 标题保留完整文字 -->
+            <div class="text-center mb-8 fade-in-up px-4 shrink-0">
+                <h1 class="text-4xl font-bold text-white tracking-tighter mb-2 leading-tight drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                    GAFA SAA <span class="text-transparent bg-clip-text bg-gradient-to-br from-blue-400 via-fuchsia-400 to-emerald-400">2026</span>
+                </h1>
+                <p class="text-xs text-zinc-300 font-light tracking-[0.2em] uppercase">
+                    Integrated Visual System · 综合视界系统
+                </p>
+            </div>
+
+            <!-- 卡片列表 -->
+            <div class="flex flex-col gap-5 w-full px-5 shrink-0 max-w-[480px]">
+                <!-- 卡片 1: Matrix -->
+                <div onclick="window.switchSystemModule('2d')" class="fade-in-up delay-100">
+                    <div class="matte-glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden cursor-pointer">
+                        <div class="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl pointer-events-none z-0"></div>
+                        <div class="relative z-10">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-[0_10px_20px_rgba(37,98,233,0.3)] mb-4">
+                                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                            <h2 class="text-xl font-semibold text-white mb-1">Matrix Studio</h2>
+                            <p class="text-[10px] text-blue-400 uppercase tracking-widest mb-3 font-medium">智能视觉单元阵列</p>
+                            <p class="text-xs text-zinc-400 font-light leading-relaxed">
+                                将图像、视频源与实时摄像头捕捉到的物理环境，无缝解析并转化为参数化的动态色彩矩阵。一键导出高清矢量与流媒体。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片 2: 3D Interactive -->
+                <div onclick="window.switchSystemModule('3d')" class="fade-in-up delay-200">
+                    <div class="matte-glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden cursor-pointer">
+                        <div class="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-rose-500/20 rounded-full blur-2xl pointer-events-none z-0"></div>
+                        <div class="relative z-10">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-fuchsia-500 to-rose-500 flex items-center justify-center shadow-[0_10px_20px_rgba(244,63,94,0.3)] mb-4">
+                                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+                            </div>
+                            <h2 class="text-xl font-semibold text-white mb-1">3D Interactive</h2>
+                            <p class="text-[10px] text-rose-400 uppercase tracking-widest mb-3 font-medium">空间交互演化引擎</p>
+                            <p class="text-xs text-zinc-400 font-light leading-relaxed">
+                                借助边缘计算级的手势追踪网络，在三维零重力宇宙中，以最直觉的体感交互重塑、解构并探索所有 26 个主题的视觉单体。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片 3: Poster -->
+                <div onclick="window.switchSystemModule('poster')" class="fade-in-up delay-[300ms]">
+                    <div class="matte-glass-card rounded-2xl p-6 shadow-xl relative overflow-hidden cursor-pointer">
+                        <div class="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none z-0"></div>
+                        <div class="relative z-10">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-[0_10px_20px_rgba(16,185,129,0.3)] mb-4">
+                                <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
+                            </div>
+                            <h2 class="text-xl font-semibold text-white mb-1">In-Between</h2>
+                            <p class="text-[10px] text-emerald-400 uppercase tracking-widest mb-3 font-medium">无限延伸交互海报</p>
+                            <p class="text-xs text-zinc-400 font-light leading-relaxed">
+                                动态重构二维阵列，探索视觉单元的无限排列。支持多指触控与引力波反馈，生成独特的“之间”海报。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === APP 1: 2D 矩阵生成器 (Mobile) === -->
+        <div id="module-2d" class="absolute inset-0 w-full h-full flex flex-col bg-transparent hidden">
+            <!-- 画布区 -->
+            <div id="a1_workspace" class="absolute inset-0 w-full h-full flex flex-col workspace-bg overflow-hidden z-10 origin-top">
+                
+                <!-- 摄像头悬浮折叠小视窗 (专属 UI) -->
+                <div id="a1_miniCamWrapper" class="absolute left-0 z-40 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hidden" style="top: calc(80px + env(safe-area-inset-top, 0px)); transform: translateX(0);">
+                    <div class="flex items-center">
+                        <div class="w-[100px] h-[130px] rounded-r-2xl overflow-hidden glass-inner border border-white/20 border-l-0 shadow-[0_10px_30px_rgba(0,0,0,0.8)] relative">
+                            <video id="a1_miniCamVideo" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+                            <div class="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#10b981] animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                        </div>
+                        <button id="a1_miniCamToggle" class="w-8 h-14 bg-white/10 backdrop-blur-md rounded-r-xl border border-white/20 border-l-0 flex items-center justify-center text-white active:bg-white/20 shadow-lg -ml-1 z-10 transition-colors">
+                            <svg class="w-5 h-5 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="a1_placeholder" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 transition-opacity duration-500">
+                    <div class="w-16 h-16 glass-panel rounded-full flex items-center justify-center mb-4 shadow-xl">
+                        <svg class="w-6 h-6 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    </div>
+                    <p class="text-xs text-white font-medium tracking-wide">请展开底部面板导入内容</p>
+                </div>
+                <div class="w-full h-full overflow-hidden flex items-center justify-center p-4 pt-[60px] pb-[40px] relative">
+                    <canvas id="a1_artCanvas" class="w-full h-full object-contain shadow-[0_20px_40px_rgba(0,0,0,0.6)] transition-all duration-700 opacity-0 bg-transparent rounded-sm"></canvas>
+                </div>
+            </div>
+
+            <!-- 底部动态抽屉面板 -->
+            <aside id="a1_sidebar" class="bottom-sheet glass-panel rounded-t-3xl flex flex-col">
+                <!-- 拖动手柄区 -->
+                <div class="drag-handle w-full h-[40px] flex items-center justify-center shrink-0">
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full pointer-events-none"></div>
+                </div>
+                <!-- 完整内容区 -->
+                <div class="flex-1 overflow-y-auto custom-scrollbar sheet-content p-5 pt-0 pb-10 max-h-[38vh]">
+                    <div class="flex flex-col gap-6">
+                        <!-- 模式切换 Tabs -->
+                        <div class="relative glass-inner p-1 rounded-lg flex items-center">
+                            <div id="a1_tabSlider" class="absolute left-1 top-1 bottom-1 w-[calc(25%-2px)] glass-active-slider rounded-md transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]"></div>
+                            <button id="a1_tabCamera" class="relative z-10 flex-1 py-2 text-xs rounded-md text-white font-semibold transition-colors active:scale-95">实时</button>
+                            <button id="a1_tabUpload" class="relative z-10 flex-1 py-2 text-xs rounded-md text-zinc-400 font-normal transition-colors active:scale-95">图片</button>
+                            <button id="a1_tabVideo" class="relative z-10 flex-1 py-2 text-xs rounded-md text-zinc-400 font-normal transition-colors active:scale-95">视频</button>
+                            <button id="a1_tabBatch" class="relative z-10 flex-1 py-2 text-xs rounded-md text-zinc-400 font-normal transition-colors active:scale-95">批量</button>
+                        </div>
+
+                        <!-- 动态容器区 -->
+                        <div class="relative min-h-[140px] flex flex-col">
+                            <!-- 1. 图片上传 -->
+                            <div id="a1_uploadArea" class="hidden absolute inset-0 glass-inner active:bg-white/[0.08] rounded-xl p-4 text-center overflow-hidden flex flex-col items-center justify-center z-10 border-dashed">
+                                <input type="file" id="a1_imageInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 z-20">
+                                <div class="flex flex-col items-center gap-1.5">
+                                    <svg class="w-6 h-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    <p class="text-sm font-medium text-white">点击选取图片</p>
+                                    <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-sans">Upload Image</p>
+                                </div>
+                            </div>
+
+                            <!-- 2. 批量文件夹上传 -->
+                            <div id="a1_batchArea" class="hidden absolute inset-0 flex flex-col h-[140px]">
+                                <div id="a1_batchUploadState" class="flex-1 glass-inner active:bg-white/[0.08] rounded-xl p-4 text-center border-dashed overflow-hidden flex flex-col items-center justify-center relative">
+                                    <input type="file" id="a1_folderInput" webkitdirectory directory multiple class="absolute inset-0 w-full h-full opacity-0 z-20">
+                                    <div class="flex flex-col items-center gap-1.5">
+                                        <svg class="w-6 h-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                        <p class="text-sm font-medium text-white">选择文件夹导入</p>
+                                        <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-sans">Batch Import</p>
+                                    </div>
+                                </div>
+                                <div id="a1_batchListState" class="hidden flex-1 flex flex-col h-full glass-inner rounded-xl overflow-hidden border-solid">
+                                    <div class="flex items-center justify-between p-2 bg-black/30 border-b border-white/5 shrink-0">
+                                        <span class="text-xs text-zinc-300 font-medium" id="a1_batchCountText">0 张图片</span>
+                                        <div class="flex gap-2">
+                                            <button id="a1_selectAllBatchBtn" class="text-xs px-2 py-0.5 rounded border border-blue-500/30 text-blue-400 active:bg-blue-900/40">全选编辑</button>
+                                            <button id="a1_clearBatchBtn" class="text-xs text-red-400 hover:text-red-300">清除并重选</button>
+                                        </div>
+                                    </div>
+                                    <div id="a1_batchThumbnailList" class="flex-1 overflow-y-auto custom-scrollbar p-2 grid grid-cols-4 gap-2 content-start"></div>
+                                </div>
+                            </div>
+
+                            <!-- 3. 上传视频 -->
+                            <div id="a1_videoUploadArea" class="hidden absolute inset-0 glass-inner active:bg-white/[0.08] rounded-xl p-4 text-center border-dashed overflow-hidden flex flex-col items-center justify-center z-10">
+                                <input type="file" id="a1_videoInput" accept="video/*" class="absolute inset-0 w-full h-full opacity-0 z-20">
+                                <div class="flex flex-col items-center gap-1.5">
+                                    <svg class="w-6 h-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    <p class="text-sm font-medium text-white">导入视频并解析</p>
+                                    <p class="text-[10px] text-zinc-500 uppercase tracking-wider font-sans">Import Video</p>
+                                </div>
+                            </div>
+
+                            <!-- 4. 摄像头 -->
+                            <div id="a1_cameraArea" class="absolute inset-0 z-10 glass-inner border-solid rounded-xl p-4 text-center flex flex-col items-center justify-center">
+                                <button id="a1_startCamBtn" class="px-5 py-3 glass-active-slider text-white rounded-lg text-sm font-medium flex items-center gap-2 active:scale-95 shadow">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    启动前置摄像头
+                                </button>
+                                <button id="a1_stopCamBtn" class="hidden px-5 py-3 bg-red-500/20 text-red-200 border border-red-500/30 rounded-lg text-sm font-medium flex items-center gap-2 active:scale-95">
+                                    停止捕捉
+                                </button>
+                                <div id="a1_camError" class="hidden absolute inset-0 bg-black/80 backdrop-blur-xl z-30 flex flex-col items-center justify-center p-3 text-center rounded-xl">
+                                    <p class="text-xs text-white mb-2">无法访问摄像头</p>
+                                    <button id="a1_closeCamErrorBtn" class="px-4 py-1.5 glass-inner text-xs text-white rounded-md">我知道了</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <video id="a1_videoElement" playsinline class="hidden" muted></video>
+
+                        <div id="a1_videoPlaybackControls" class="hidden flex items-center justify-between glass-inner p-2 rounded-lg">
+                            <button id="a1_playPauseBtn" class="p-2 rounded-md active:bg-white/10 text-white">
+                                <svg id="a1_iconPause" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <svg id="a1_iconPlay" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </button>
+                            <span class="text-xs text-zinc-300">视频播放控制</span>
+                            <button id="a1_restartVideoBtn" class="p-2 rounded-md active:bg-white/10 text-zinc-300">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            </button>
+                        </div>
+
+                        <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                        <!-- 参数控制区 -->
+                        <div class="flex flex-col gap-6 transition-opacity duration-300" id="a1_controls" style="opacity: 0.3; pointer-events: none;">
+                            <div id="a1_batchParamHint" class="hidden -mb-4 bg-blue-500/10 border border-blue-400/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span id="a1_batchParamHintText" class="text-[10px] text-blue-200">当前调整仅对选中图片生效</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="block text-sm font-semibold text-white drop-shadow-md">色彩模式 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Color Mode</span></label>
+                                <div class="relative glass-inner p-1 rounded-lg flex items-center">
+                                    <div id="a1_styleSlider" class="absolute left-1 top-1 bottom-1 w-[calc(50%-4px)] glass-active-slider rounded-md transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] translate-x-full"></div>
+                                    <button id="a1_styleBW" class="relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-zinc-400 font-normal flex flex-col items-center justify-center gap-0.5 active:scale-95">
+                                        <span>极简黑白</span><span class="text-[9px] opacity-60 font-sans tracking-wide">Monochrome</span>
+                                    </button>
+                                    <button id="a1_styleColor" class="relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95">
+                                        <span>专属五色</span><span class="text-[9px] opacity-70 font-sans tracking-wide">Strict Palette</span>
+                                    </button>
+                                </div>
+                                
+                                <div id="a1_paletteHint" class="flex gap-2 pt-2 items-center justify-between px-1 transition-opacity duration-300">
+                                    <span class="text-xs text-zinc-400">激活色彩</span>
+                                    <div class="flex gap-1.5">
+                                        <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(252,84,32,0.5)]" style="background-color: rgb(252,84,32);"></div>
+                                        <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(249,6,195,0.5)]" style="background-color: rgb(249,6,195);"></div>
+                                        <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(37,98,233,0.5)]" style="background-color: rgb(37,98,233);"></div>
+                                        <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(74,221,127,0.5)]" style="background-color: rgb(74,221,127);"></div>
+                                        <div class="w-3 h-3 rounded-full shadow-[0_0_8px_rgba(55,188,246,0.5)]" style="background-color: rgb(55,188,246);"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="block text-sm font-semibold text-white drop-shadow-md">画布底色 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Canvas BG</span></label>
+                                <div class="flex gap-8 px-1">
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+                                        <div class="relative flex items-center justify-center">
+                                            <input type="radio" name="a1_bgColor" value="#000000" class="peer sr-only">
+                                            <div class="w-4 h-4 rounded-full border border-white/20 peer-checked:border-white peer-checked:border-4 transition-all shadow-inner"></div>
+                                        </div>
+                                        <span class="text-sm text-zinc-300">纯黑</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer group">
+                                        <div class="relative flex items-center justify-center">
+                                            <input type="radio" name="a1_bgColor" value="#ffffff" checked class="peer sr-only">
+                                            <div class="w-4 h-4 rounded-full border border-white/20 peer-checked:border-white peer-checked:border-4 transition-all bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]"></div>
+                                        </div>
+                                        <span class="text-sm text-zinc-300">纯白</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="block text-sm font-semibold text-white drop-shadow-md">提取目标 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Mapping</span></label>
+                                <div class="relative glass-inner p-1 rounded-lg flex items-center">
+                                    <div id="a1_mapSlider" class="absolute left-1 top-1 bottom-1 w-[calc(50%-4px)] glass-active-slider rounded-md transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]"></div>
+                                    <button id="a1_mapNormal" class="relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95">
+                                        <span>深色转图形</span>
+                                    </button>
+                                    <button id="a1_mapInvert" class="relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-zinc-400 font-normal flex flex-col items-center justify-center gap-0.5 active:scale-95">
+                                        <span>浅色转图形</span>
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-zinc-400 leading-tight px-1">白底黑字请选“深色转图形”以保证底色纯净。</p>
+                            </div>
+
+                            <div class="space-y-3 pt-2">
+                                <div class="flex justify-between items-end">
+                                    <label class="block text-sm font-semibold text-white drop-shadow-md">矩阵密度</label>
+                                    <span id="a1_blockSizeVal" class="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded shadow-inner">14px</span>
+                                </div>
+                                <input type="range" id="a1_blockSize" min="2" max="40" value="14" step="1">
+                            </div>
+
+                            <div class="space-y-4 pt-1">
+                                <div class="flex justify-between items-end">
+                                    <label class="block text-sm font-semibold text-white drop-shadow-md">对比度</label>
+                                    <span id="a1_contrastVal" class="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded shadow-inner">1.2</span>
+                                </div>
+                                <input type="range" id="a1_contrast" min="0.5" max="3.0" value="1.2" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- === APP 2: 3D 空间交互引擎 (Mobile) === -->
+        <div id="module-3d" class="absolute inset-0 w-full h-full bg-transparent hidden">
+            <!-- 3D 主渲染区 -->
+            <div id="a2_workspace" class="absolute inset-0 w-full h-full bg-transparent overflow-hidden z-10 pb-[65px] origin-top">
+                <div id="a2_loadingOverlay" class="absolute inset-0 bg-black/60 backdrop-blur-xl z-30 flex flex-col items-center justify-center transition-opacity duration-500 hidden">
+                    <div class="loader-ring mb-4"></div>
+                    <p class="text-sm text-white font-medium tracking-widest uppercase drop-shadow-md">Initializing</p>
+                    <p class="text-xs text-zinc-300 mt-1" id="a2_loadingText">加载模型与请求视觉权限...</p>
+                </div>
+                <div id="a2_three-canvas-container" class="w-full h-full absolute inset-0 z-10"></div>
+                
+                <button id="a2_exitImmersiveBtn" class="glass-panel px-5 py-2.5 rounded-full text-white text-xs font-medium flex items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] active:scale-95 gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                    退出沉浸
+                </button>
+            </div>
+
+            <!-- 底部动态抽屉面板 -->
+            <aside id="a2_sidebar" class="bottom-sheet glass-panel rounded-t-3xl flex flex-col">
+                <div class="drag-handle w-full h-[40px] flex items-center justify-center shrink-0">
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full pointer-events-none"></div>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar sheet-content p-5 pt-0 pb-10 max-h-[38vh] flex flex-col gap-6">
+                    <!-- 传感器接入 -->
+                    <div class="space-y-3">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md">传感器接入 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Sensor</span></label>
+                        <div id="a2_cameraContainer" class="glass-inner rounded-xl overflow-hidden relative flex flex-col items-center justify-center transition-colors h-[180px] w-full">
+                            <div id="a2_cameraInitUI" class="p-4 flex flex-col items-center justify-center w-full h-full">
+                                <button id="a2_startCamBtn" class="w-full py-3 glass-active-slider text-white rounded-lg text-sm font-semibold active:scale-95 shadow flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    启动手势追踪
+                                </button>
+                                <p class="text-[10px] text-zinc-400 mt-3 text-center leading-relaxed">需允许浏览器访问摄像头权限<br>推理过程完全在本地运行</p>
+                            </div>
+                            <div id="a2_cameraFeed" class="absolute inset-0 w-full h-full hidden bg-black">
+                                <video id="a2_webcam" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen" autoplay playsinline></video>
+                                <canvas id="a2_tracking-canvas" class="absolute inset-0 w-full h-full z-10"></canvas>
+                                <div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-2 py-1 rounded text-[9px] text-emerald-400 flex items-center gap-1.5 border border-white/10 z-20 shadow-lg">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> ACTIVE
+                                </div>
+                                <button id="a2_stopCamBtn" class="absolute top-2 right-2 bg-black/40 hover:bg-red-500/60 backdrop-blur-md p-1.5 rounded text-white border border-white/10 z-20 shadow-lg">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                    <!-- 主题选择 (定制版下拉菜单) -->
+                    <div class="space-y-3 relative z-30">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md flex justify-between items-end">
+                            <span>视觉单元主题 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Theme</span></span>
+                            <span id="a2_modeBadge" class="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase tracking-wider hidden backdrop-blur-md shadow-[0_0_10px_rgba(244,63,94,0.2)]">Morphing</span>
+                        </label>
+                        <div class="flex gap-2 relative">
+                            <!-- 定制下拉选择器 -->
+                            <div class="relative flex-1" id="customThemeSelector">
+                                <div id="a2_themeDisplay" class="w-full glass-inner text-white text-sm rounded-lg py-3 px-4 flex justify-between items-center cursor-pointer active:scale-95 transition-transform duration-200">
+                                    <span id="a2_themeText">00 概念字符</span>
+                                    <svg id="a2_themeIcon" class="w-4 h-4 text-zinc-400 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                                
+                                <!-- 下拉列表面板 -->
+                                <div id="a2_themeDropdown" class="absolute bottom-[calc(100%+8px)] left-0 w-full glass-dropdown rounded-xl flex flex-col z-[100] overflow-hidden opacity-0 pointer-events-none transform translate-y-2 transition-all duration-300">
+                                    <div id="a2_themeList" class="max-h-[180px] overflow-y-auto p-1.5 flex flex-col gap-0.5 w-full">
+                                        <!-- JS 将动态插入这里 -->
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="a2_manualModeBtn" class="glass-inner px-3 rounded-lg text-zinc-200 active:bg-white/10 flex items-center justify-center transition-colors">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>
+                            </button>
+                        </div>
+                        <div class="pt-2 flex items-center justify-between">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-[11px] text-zinc-400">当前色彩配置</span>
+                                <span class="text-[9px] text-emerald-400 flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></span>静止时自动演化</span>
+                            </div>
+                            <div id="a2_colorPalette" class="flex gap-2"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                    <!-- 交互指南 -->
+                    <div class="space-y-4">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md">交互手势指南 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Gestures</span></label>
+                        
+                        <div class="space-y-4">
+                            <!-- 模式切换 -->
+                            <div class="glass-inner p-3.5 rounded-xl flex items-start gap-3">
+                                <div class="text-xl mt-0.5 w-6 flex justify-center">✌️</div>
+                                <div>
+                                    <h4 class="text-xs font-medium text-white mb-0.5">模式切换 <span class="text-[10px] text-zinc-400 font-normal uppercase">MODE SWITCH</span></h4>
+                                    <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">双指伸直：全局切换「宏观群像」与「单体聚焦」视角。</p>
+                                </div>
+                            </div>
+
+                            <!-- 宏观模式交互 -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 pl-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-[#ef4444] shadow-[0_0_5px_rgba(239,68,68,0.6)]"></div>
+                                    <span class="text-[10px] text-[#ef4444] font-medium tracking-wide">宏观模式交互</span>
+                                </div>
+                                <div class="glass-inner p-3.5 rounded-xl flex items-start gap-3">
+                                    <div class="mt-0.5 w-6 flex justify-center"><div class="w-4 h-4 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div></div>
+                                    <div>
+                                        <h4 class="text-xs font-medium text-white mb-0.5">主手控制 <span class="text-[10px] text-zinc-400 font-normal uppercase">PRIMARY</span></h4>
+                                        <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">手指平移：控制模型整体旋转方向。<br>双指交汇：当节点变白时，即触发空间排列形态变化。</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 单体模式交互 -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 mt-4 pl-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_5px_rgba(255,255,255,0.6)]"></div>
+                                    <span class="text-[10px] text-white font-medium tracking-wide">单体模式交互</span>
+                                </div>
+                                <div class="glass-inner p-3.5 rounded-xl flex items-start gap-3">
+                                    <div class="mt-0.5 w-6 flex justify-center"><div class="w-4 h-4 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div></div>
+                                    <div>
+                                        <h4 class="text-xs font-medium text-white mb-0.5">主手捏合 <span class="text-[10px] text-zinc-400 font-normal uppercase">PRIMARY</span></h4>
+                                        <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">双指捏合：控制视觉单元的像素化与清晰化过渡。</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 翻页控制 (单体) -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 mt-4 pl-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-[#10b981] shadow-[0_0_5px_rgba(16,185,129,0.6)]"></div>
+                                    <span class="text-[10px] text-[#10b981] font-medium tracking-wide">翻页控制 (单体)</span>
+                                </div>
+                                <div class="glass-inner p-3.5 rounded-xl flex items-start gap-3">
+                                    <div class="text-xl mt-0.5 w-6 flex justify-center">🖐️</div>
+                                    <div>
+                                        <h4 class="text-xs font-medium text-white mb-0.5">主手挥动 <span class="text-[10px] text-zinc-400 font-normal uppercase">SWIPE</span></h4>
+                                        <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">五指伸展：向上挥动切换上一个，向下挥动切换下一个。</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 粒子控制 (通用) -->
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 mt-4 pl-1">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] shadow-[0_0_5px_rgba(59,130,246,0.6)]"></div>
+                                    <span class="text-[10px] text-[#3b82f6] font-medium tracking-wide">粒子控制 (通用)</span>
+                                </div>
+                                <div class="glass-inner p-3.5 rounded-xl flex items-start gap-3">
+                                    <div class="mt-0.5 w-6 flex justify-center"><div class="w-4 h-4 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div></div>
+                                    <div>
+                                        <h4 class="text-xs font-medium text-white mb-0.5">副手捏合 <span class="text-[10px] text-zinc-400 font-normal uppercase">SECONDARY</span></h4>
+                                        <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">第二只手捏合：控制单个元素内部粒子的炸开与收缩。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- === APP 3: 交互海报 (Mobile) === -->
+        <div id="module-poster" class="absolute inset-0 w-full h-full bg-transparent hidden z-10">
+            <!-- 渲染画布区 -->
+            <div id="a3_workspace" class="absolute inset-0 w-full h-full bg-[#050505] overflow-hidden z-10 pb-[65px] transition-colors duration-500 origin-top">
+                <canvas id="a3_canvas" class="absolute inset-0 w-full h-full z-0 touch-none"></canvas>
+                <button id="a3_exitImmersiveBtn" class="glass-panel px-5 py-2.5 rounded-full text-white text-xs font-medium flex items-center justify-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] active:scale-95 gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                    退出沉浸
+                </button>
+            </div>
+
+            <!-- 底部动态抽屉面板 -->
+            <aside id="a3_sidebar" class="bottom-sheet glass-panel rounded-t-3xl flex flex-col">
+                <div class="drag-handle w-full h-[40px] flex items-center justify-center shrink-0">
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full pointer-events-none"></div>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar sheet-content p-5 pt-0 pb-10 max-h-[38vh] flex flex-col gap-6">
+                    <div class="space-y-3">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md">画布模式 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Theme</span></label>
+                        <button id="a3_toggleThemeBtn" class="w-full py-2.5 glass-active-slider text-white rounded-lg text-sm font-semibold active:scale-95 shadow-lg border-white/20">
+                            切换为白底模式
+                        </button>
+                    </div>
+
+                    <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                    <div class="space-y-6">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md">海报参数 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Parameters</span></label>
+                        
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs text-zinc-300">动画流速</span>
+                                <span id="a3_speedVal" class="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded shadow-inner">3.0x</span>
+                            </div>
+                            <input type="range" id="a3_speedSlider" min="0.2" max="5.0" step="0.1" value="3.0">
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs text-zinc-300">单元尺寸</span>
+                                <span id="a3_scaleVal" class="text-xs text-white font-mono bg-white/10 px-1.5 py-0.5 rounded shadow-inner">2.3x</span>
+                            </div>
+                            <input type="range" id="a3_scaleSlider" min="0.5" max="5.0" step="0.1" value="2.3">
+                        </div>
+                    </div>
+                    
+                    <div class="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+                    <!-- 玩法说明 -->
+                    <div class="space-y-4 pb-2">
+                        <label class="block text-sm font-semibold text-white drop-shadow-md">交互操作指南 <span class="ml-1 text-zinc-400 font-normal uppercase text-[10px] font-sans tracking-widest">Guide</span></label>
+                        
+                        <div class="glass-inner p-3 rounded-xl flex items-start gap-3">
+                            <div class="text-xl mt-0.5 w-6 flex justify-center">🖱️</div>
+                            <div>
+                                <h4 class="text-xs font-medium text-white mb-0.5">漫游视界 <span class="text-[10px] text-zinc-400 font-normal uppercase">Drag</span></h4>
+                                <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">单指触摸，可全方位拖拽并漫游无限延伸的阵列海报。</p>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-inner p-3 rounded-xl flex items-start gap-3">
+                            <div class="text-xl mt-0.5 w-6 flex justify-center">🔍</div>
+                            <div>
+                                <h4 class="text-xs font-medium text-white mb-0.5">缩放解析 <span class="text-[10px] text-zinc-400 font-normal uppercase">Zoom</span></h4>
+                                <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">使用双指捏合，在宏观群像与微观单体之间无缝缩放切换。</p>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-inner p-3 rounded-xl flex items-start gap-3">
+                            <div class="text-xl mt-0.5 w-6 flex justify-center">✨</div>
+                            <div>
+                                <h4 class="text-xs font-medium text-white mb-0.5">引力波干预 <span class="text-[10px] text-zinc-400 font-normal uppercase">Ripple</span></h4>
+                                <p class="text-[10px] text-zinc-300 leading-relaxed opacity-80">点击任意阵列节点，主动触发该区域的视觉单元重构与局部引力波反馈。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+    </main>
+
+    <!-- 移动端专属：底部导航栏 Bottom Nav -->
+    <nav id="mobile-bottom-nav" class="fixed bottom-0 left-0 w-full h-[65px] pb-[var(--safe-bottom)] glass-dropdown border-t border-white/[0.08] flex items-center justify-around z-[90] transition-transform duration-500">
+        <button id="navBtnHome" onclick="window.switchSystemModule('home')" class="flex-1 flex flex-col items-center justify-center gap-1 text-white transition-colors active:opacity-60">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span class="text-[10px] font-medium tracking-wide">首页</span>
+        </button>
+        <button id="navBtn2D" onclick="window.switchSystemModule('2d')" class="flex-1 flex flex-col items-center justify-center gap-1 text-zinc-500 transition-colors active:opacity-60">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span class="text-[10px] font-medium tracking-wide">Matrix</span>
+        </button>
+        <button id="navBtn3D" onclick="window.switchSystemModule('3d')" class="flex-1 flex flex-col items-center justify-center gap-1 text-zinc-500 transition-colors active:opacity-60">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/></svg>
+            <span class="text-[10px] font-medium tracking-wide">3D</span>
+        </button>
+        <button id="navBtnPoster" onclick="window.switchSystemModule('poster')" class="flex-1 flex flex-col items-center justify-center gap-1 text-zinc-500 transition-colors active:opacity-60">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+            <span class="text-[10px] font-medium tracking-wide">Poster</span>
+        </button>
+    </nav>
+
+    <!-- ========================================== -->
+    <!-- 全局数据与系统控制逻辑 (Global Hook)        -->
+    <!-- ========================================== -->
+    <script>
+        window.GAFA_DATA = {
+            iconThemes: [
+                "00 概念字符", "01 桥", "02 孤岛", "03 船", "04 系统", "05 加", "06 型", "07 关系", "08 星", "09 窝", "10 城", 
+                "11 嫁接", "12 实验", "13 海丝", "14 蓝色细胞", "15 快乐", "16 度假", "17 生活", "18 绿道", 
+                "19 涌", "20 绿洲", "21 “碳“索", "22 镶嵌", "23 开放客厅", "24 方盒子", "25 视角", "26 镶嵌"
+            ],
+            themePalettes: [
+                [0x3C65B8, 0x58B665, 0xC3428E], [0x4ADD7F, 0x2562E9, 0x000000], [0x2562E9, 0x37BCF6, 0x000000], [0x37BCF6, 0x4ADD7F, 0x000000], [0x2562E9, 0xFC5420, 0x000000], 
+                [0x2562E9, 0x4ADD7F, 0x000000], [0xF906C3, 0x2562E9, 0x000000], [0xF906C3, 0x37BCF6, 0x000000], [0xFC5420, 0x37BCF6, 0x000000], 
+                [0xF906C3, 0x4ADD7F, 0x000000], [0x37BCF6, 0xF906C3, 0x000000], [0x4ADD7F, 0x2562E9, 0x000000], [0xFC5420, 0x2562E9, 0x000000], 
+                [0x2562E9, 0x37BCF6, 0x000000], [0xFC5420, 0x2562E9, 0x000000], [0xFC5420, 0xF906C3, 0x000000], [0x2562E9, 0xFC5420, 0x000000], 
+                [0x2562E9, 0x37BCF6, 0x000000], [0x2562E9, 0x4ADD7F, 0x000000], [0xF906C3, 0x2562E9, 0x000000], [0xFC5420, 0x4ADD7F, 0x000000], 
+                [0x4ADD7F, 0x37BCF6, 0x000000], [0xFC5420, 0xF906C3, 0x000000], [0x2562E9, 0x37BCF6, 0x000000], [0xFC5420, 0x37BCF6, 0x000000], 
+                [0xF906C3, 0x37BCF6, 0x000000], [0xF906C3, 0x4ADD7F, 0x000000]
+            ],
+            baseMaps: [
+                ["G+=+...S..S=++=..S..","I.....|.|.I.....|.|.","i..GS!...!S+==+!...!","I...IS_-_SI....S_-_S","G+=+G!...!i....!...!","......oOod..S....S..",".....O.....|.|..|.|.","......o*o.!...!!...!",".........OS_-_SS_-_S",".....doOo.!...!!...!"],
+                ["...........","...........","...........","...S_-_S...","...|G.G|..","...!_-_!...","...!...!...","...G...G...","...........","...........","..........."],
+                ["...........","...........","...........","...S.-.A...","....H.G....","...!.S.|...","....G.H....","...A._.S...","...........","...........","..........."],
+                ["...........","...........","...........",".....!.....","....A|A....",".....!.....","...SHSHS...","....-_-....","...........","...........","..........."],
+                ["...........","...........","....|.|....","..._._._...","....|.|....","..._._._...","....|.|....","...........","...........","...........","..........."],
+                ["...........","...........",".....|.....","....S!S....","...-_G_-...","....S!S....",".....|.....","...........","...........","...........","..........."],
+                ["...........","...........",".......H...","...-AS|....","...S..A....","...A..S....","...|SA-....","...........","...........","...........","..........."],
+                ["...........","...........","....|_|....","...S_S_S...","......!....","....!.H....","....H..H...","...........","...........","...........","..........."],
+                ["...........","...........","...........",".....G.....",".....!.....","...G_S_G...",".....!.....",".....G.....","...........","...........","..........."],
+                ["...........","...........","...........","....-_-....","...|...|...","...!.A.!...","...|HSH|...","....-_-....","...........","...........","..........."],
+                ["...........","...........","...........","...S.......","...A.H.....","...S!G.A...","...A|H.S...","...S!G!S...","...........","...........","..........."],
+                ["...........","...........","...........","...EA..S...","....!......",".....G.....","......!....","...S..AE...","...........","...........","..........."],
+                ["...........","...........","...........","....-_-....",".....|.....",".....A.....","....-H-....","...H|G|H...","...........","...........","..........."],
+                ["...........","...........","...........","...A|.|A...","...|_!_|...","....!.!....","...|_!_|...","...A|.|A...","...........","...........","..........."],
+                ["...........","...........","...........","....S.S....","...SASAS...","...!SHS!...","....!S!....",".....!.....","...........","...........","..........."],
+                ["...........","...........","...........","....|.|....","....A.A....","...........","...S...S...","....SAS....","...........","...........","..........."],
+                ["...........","...........","...........","....D.d....","...d.@.D...","....@O@....","...D.@.d...","....d.D...","...........","...........","..........."],
+                ["...........","...........","...........","...*oOo*...","....@D@....",".....*.....",".....o.....","....oOo....","...........","...........","..........."],
+                ["...........","...........","...........","...*o.o*...","...dO.Od...","...@o.o@...","...dO.Od...","...*o.o*...","...........","...........","..........."],
+                ["...........","...........","...........","...*d.o*...","...d.o.....","...@.*.@...",".....o.d...","...*o.d*...","...........","...........","..........."],
+                ["...........","...........","...........",".....o.....","....d*d....","...dO@Od...","...Oo*oO...",".....@.....","...........","...........","..........."],
+                ["...........","...........","...........","....oDO...","...O*@*o...","...D@D@D...","...o*@*O..","....ODo....","...........","...........","..........."],
+                ["...........","...........","...........","...*oO.*...","...oD.Oo...","...O.ODO...","...oD.Oo...","...*oO.*..","...........","...........","..........."],
+                ["...........","...........","...........","...@OoO@...","...O..dO...","...Od..O...","...@OoO@...","....o.o....","...........","...........","..........."],
+                ["...........","...........","...........","...@*o*@...","...*.*.*...","...o*d*o...","...*.*.*...","...@*o*@...","...........","...........","..........."],
+                ["...........","...........","...........","...D...D...","....@*@....","...*.o.*...","....@*@....","...D...D...","...........","...........","..........."],
+                ["...........","...........","...........","...*.Oo*...","...oO.do...","...OdO.O...","...oO.do...","...*.Oo*...","...........","...........","..........."]
+            ]
+        };
+        window.GAFA_DATA.hexPalettes = window.GAFA_DATA.themePalettes.map(palette => palette.map(hex => '#' + hex.toString(16).padStart(6, '0')));
+        window.SystemState = { activeModule: 'home' };
+
+        // === 核心逻辑：动态拉动抽屉控制器 ===
+        function initDraggableSheet(sheetId, workspaceId) {
+            const sheet = document.getElementById(sheetId);
+            const workspace = workspaceId ? document.getElementById(workspaceId) : null;
+            if (!sheet) return;
+            const handle = sheet.querySelector('.drag-handle');
+            let startY = 0;
+            let currentTranslateY = 0;
+            let isExpanded = false;
+            let getCollapsedY = () => sheet.offsetHeight - 40;
+
+            const updateWorkspace = (y, hasTransition) => {
+                if (!workspace) return;
+                workspace.style.transition = hasTransition ? 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+                const collapsedY = getCollapsedY();
+                let shift = Math.max(0, collapsedY - y);
+                // 上拉抽屉时，将视窗向上偏移避让遮挡
+                workspace.style.transform = `translateY(-${shift * 0.5}px)`;
+            };
+
+            // 监听窗口大小或抽屉高度变化更新初始位置
+            new ResizeObserver(() => {
+                if (!isExpanded && sheet.offsetHeight > 0) {
+                    sheet.style.transition = 'none';
+                    sheet.style.transform = `translateY(${getCollapsedY()}px)`;
+                    updateWorkspace(getCollapsedY(), false);
+                }
+            }).observe(sheet);
+
+            handle.addEventListener('touchstart', (e) => {
+                startY = e.touches[0].clientY;
+                sheet.style.transition = 'none';
+            }, {passive: true});
+
+            handle.addEventListener('touchmove', (e) => {
+                const deltaY = e.touches[0].clientY - startY;
+                const collapsedY = getCollapsedY();
+                let newY = isExpanded ? deltaY : collapsedY + deltaY;
+                newY = Math.max(0, Math.min(newY, collapsedY));
+                currentTranslateY = newY;
+                sheet.style.transform = `translateY(${newY}px)`;
+                updateWorkspace(newY, false);
+            }, {passive: true});
+
+            handle.addEventListener('touchend', (e) => {
+                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
+                const collapsedY = getCollapsedY();
+                const threshold = collapsedY * 0.25;
+
+                if (isExpanded) {
+                    if (currentTranslateY > threshold) {
+                        isExpanded = false; 
+                        sheet.style.transform = `translateY(${collapsedY}px)`;
+                        updateWorkspace(collapsedY, true);
+                    } else {
+                        sheet.style.transform = `translateY(0px)`;
+                        updateWorkspace(0, true);
+                    }
+                } else {
+                    if (currentTranslateY < collapsedY - threshold) {
+                        isExpanded = true; 
+                        sheet.style.transform = `translateY(0px)`;
+                        updateWorkspace(0, true);
+                    } else {
+                        sheet.style.transform = `translateY(${collapsedY}px)`;
+                        updateWorkspace(collapsedY, true);
+                    }
+                }
+            });
+
+            handle.addEventListener('click', () => {
+                const collapsedY = getCollapsedY();
+                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
+                isExpanded = !isExpanded;
+                sheet.style.transform = `translateY(${isExpanded ? 0 : collapsedY}px)`;
+                updateWorkspace(isExpanded ? 0 : collapsedY, true);
+            });
+
+            sheet.toggleSheet = () => {
+                const collapsedY = getCollapsedY();
+                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
+                isExpanded = !isExpanded;
+                sheet.style.transform = `translateY(${isExpanded ? 0 : collapsedY}px)`;
+                updateWorkspace(isExpanded ? 0 : collapsedY, true);
+            };
+            sheet.closeSheet = () => {
+                const collapsedY = getCollapsedY();
+                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
+                isExpanded = false;
+                sheet.style.transform = `translateY(${collapsedY}px)`;
+                updateWorkspace(collapsedY, true);
+            };
+            sheet.openSheet = () => {
+                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
+                isExpanded = true;
+                sheet.style.transform = `translateY(0px)`;
+                updateWorkspace(0, true);
+            };
+        }
+
+        // 初始化各个模块的抽屉
+        window.addEventListener('DOMContentLoaded', () => {
+            initDraggableSheet('a1_sidebar', 'a1_workspace');
+            initDraggableSheet('a2_sidebar', 'a2_workspace');
+            initDraggableSheet('a3_sidebar', 'a3_workspace');
+        });
+
+        window.closeAllSheets = function() {
+            ['a1_sidebar', 'a2_sidebar', 'a3_sidebar'].forEach(id => {
+                const sheet = document.getElementById(id);
+                if(sheet && sheet.closeSheet) sheet.closeSheet();
+            });
+        };
+
+        window.switchSystemModule = function(mod) {
+            if (window.SystemState.activeModule === mod) return;
+            
+            if (window.a1_stopStream) window.a1_stopStream();
+            if (window.a2_stopStream) window.a2_stopStream();
+            
+            const isHome = mod === 'home';
+            const is2D = mod === '2d';
+            const is3D = mod === '3d';
+            const isPoster = mod === 'poster';
+            
+            document.getElementById('module-home').classList.toggle('hidden', !isHome);
+            document.getElementById('module-2d').classList.toggle('hidden', !is2D);
+            document.getElementById('module-3d').classList.toggle('hidden', !is3D);
+            document.getElementById('module-poster').classList.toggle('hidden', !isPoster);
+            
+            const navBtns = { 'home': 'navBtnHome', '2d': 'navBtn2D', '3d': 'navBtn3D', 'poster': 'navBtnPoster' };
+            Object.values(navBtns).forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn) { btn.classList.remove('text-white'); btn.classList.add('text-zinc-500'); }
+            });
+            const activeBtn = document.getElementById(navBtns[mod]);
+            if(activeBtn) { activeBtn.classList.add('text-white'); activeBtn.classList.remove('text-zinc-500'); }
+            
+            document.getElementById('home_action_wrapper').classList.toggle('hidden', !isHome);
+            document.getElementById('a1_action_wrapper').classList.toggle('hidden', !is2D);
+            document.getElementById('a2_action_wrapper').classList.toggle('hidden', !is3D);
+            document.getElementById('a3_action_wrapper').classList.toggle('hidden', !isPoster);
+
+            window.closeAllSheets();
+            window.SystemState.activeModule = mod;
+
+            if (!isHome) window.dispatchEvent(new Event('resize'));
+        };
+    </script>
+
+    <!-- ========================================== -->
+    <!-- APP 1: 2D 矩阵生成器 JS                   -->
+    <!-- ========================================== -->
+    <script>
+        (function() {
+            const PALETTE = [ { r: 252, g: 84, b: 32 }, { r: 249, g: 6, b: 195 }, { r: 37, g: 98, b: 233 }, { r: 74, g: 221, b: 127 }, { r: 55, g: 188, b: 246 } ];
+            const imageInput = document.getElementById('a1_imageInput'); const folderInput = document.getElementById('a1_folderInput'); const videoInput = document.getElementById('a1_videoInput');
+            const artCanvas = document.getElementById('a1_artCanvas'); const ctx = artCanvas.getContext('2d');
+            const mainActionBtn = document.getElementById('a1_mainActionBtn'); const btnText = document.getElementById('a1_btnText');
+            const btnIconDownload = document.getElementById('a1_btnIconDownload'); const btnIconZip = document.getElementById('a1_btnIconZip'); const btnIconRecord = document.getElementById('a1_btnIconRecord');
+            const controls = document.getElementById('a1_controls'); const placeholder = document.getElementById('a1_placeholder'); const batchParamHint = document.getElementById('a1_batchParamHint');
+            const blockSizeSlider = document.getElementById('a1_blockSize'); const contrastSlider = document.getElementById('a1_contrast'); const bgRadios = document.querySelectorAll('input[name="a1_bgColor"]');
+            
+            const uploadArea = document.getElementById('a1_uploadArea'); const batchArea = document.getElementById('a1_batchArea'); const batchUploadState = document.getElementById('a1_batchUploadState');
+            const batchListState = document.getElementById('a1_batchListState'); const batchThumbnailList = document.getElementById('a1_batchThumbnailList'); const batchCountText = document.getElementById('a1_batchCountText');
+            const selectAllBatchBtn = document.getElementById('a1_selectAllBatchBtn'); const clearBatchBtn = document.getElementById('a1_clearBatchBtn'); const batchParamHintText = document.getElementById('a1_batchParamHintText');
+            const videoUploadArea = document.getElementById('a1_videoUploadArea'); const cameraArea = document.getElementById('a1_cameraArea'); const videoPlaybackControls = document.getElementById('a1_videoPlaybackControls');
+            const videoElement = document.getElementById('a1_videoElement'); const startCamBtn = document.getElementById('a1_startCamBtn'); const stopCamBtn = document.getElementById('a1_stopCamBtn');
+            const camError = document.getElementById('a1_camError'); const closeCamErrorBtn = document.getElementById('a1_closeCamErrorBtn');
+            const playPauseBtn = document.getElementById('a1_playPauseBtn'); const restartVideoBtn = document.getElementById('a1_restartVideoBtn');
+            const iconPlay = document.getElementById('a1_iconPlay'); const iconPause = document.getElementById('a1_iconPause');
+
+            let originalImage = null; let isColorMode = true; let isNormalMapping = true; 
+            let offscreenCanvas = document.createElement('canvas'); let offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+            let sourceMode = 'camera'; let animationFrameId = null; let isExporting = false; 
+            let batchImages = []; let currentBatchIndex = -1; let isSelectAll = false;
+            let mediaRecorder = null; let recordedChunks = []; let isRecording = false;
+
+            const tabSlider = document.getElementById('a1_tabSlider');
+            const tabs = { 'camera': document.getElementById('a1_tabCamera'), 'image': document.getElementById('a1_tabUpload'), 'video': document.getElementById('a1_tabVideo'), 'batch': document.getElementById('a1_tabBatch') };
+
+            // 悬浮小视窗折叠逻辑
+            let isMiniCamHidden = false;
+            document.getElementById('a1_miniCamToggle').addEventListener('click', function() {
+                isMiniCamHidden = !isMiniCamHidden;
+                const wrapper = document.getElementById('a1_miniCamWrapper');
+                const svg = this.querySelector('svg');
+                if(isMiniCamHidden) {
+                    wrapper.style.transform = 'translateX(-100px)'; // Hide the video container part
+                    svg.style.transform = 'rotate(180deg)';
+                } else {
+                    wrapper.style.transform = 'translateX(0)';
+                    svg.style.transform = 'rotate(0deg)';
+                }
+            });
+
+            function getDefaultParams() { return { blockSize: 14, contrast: 1.2, bgColor: '#ffffff', isColorMode: true, isNormalMapping: true }; }
+            function loadImageAsPromise(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = e.target.result; }; reader.onerror = reject; reader.readAsDataURL(file); }); }
+            function setupOffscreenCanvasForImage(img) { const maxSize = 800; let width = img.width; let height = img.height; if (width > maxSize || height > maxSize) { const ratio = Math.min(maxSize / width, maxSize / height); width = Math.floor(width * ratio); height = Math.floor(height * ratio); } offscreenCanvas.width = width; offscreenCanvas.height = height; offscreenCtx.drawImage(img, 0, 0, width, height); }
+
+            function updateCurrentBatchParams() {
+                if (sourceMode === 'batch') {
+                    const newParams = { blockSize: parseInt(blockSizeSlider.value), contrast: parseFloat(contrastSlider.value), bgColor: document.querySelector('input[name="a1_bgColor"]:checked').value, isColorMode: isColorMode, isNormalMapping: isNormalMapping };
+                    if (isSelectAll) { batchImages.forEach(img => { img.params = { ...newParams }; }); } else if (currentBatchIndex >= 0) { batchImages[currentBatchIndex].params = newParams; }
+                }
+            }
+
+            blockSizeSlider.addEventListener('input', (e) => { document.getElementById('a1_blockSizeVal').innerText = e.target.value + 'px'; updateCurrentBatchParams(); if(['image', 'batch'].includes(sourceMode)) renderArt(); });
+            contrastSlider.addEventListener('input', (e) => { document.getElementById('a1_contrastVal').innerText = parseFloat(e.target.value).toFixed(1); updateCurrentBatchParams(); if(['image', 'batch'].includes(sourceMode)) renderArt(); });
+            bgRadios.forEach(r => r.addEventListener('change', () => { updateCurrentBatchParams(); if(['image', 'batch'].includes(sourceMode)) renderArt(); }));
+
+            document.getElementById('a1_styleBW').addEventListener('click', () => setStyleMode(false)); document.getElementById('a1_styleColor').addEventListener('click', () => setStyleMode(true));
+            document.getElementById('a1_mapNormal').addEventListener('click', () => setMappingMode(true)); document.getElementById('a1_mapInvert').addEventListener('click', () => setMappingMode(false));
+            mainActionBtn.addEventListener('click', handleMainAction);
+
+            function switchTab(mode) {
+                stopStreamOrVideo(); const tabMap = { 'camera': 0, 'image': 1, 'video': 2, 'batch': 3 }; tabSlider.style.transform = `translateX(${tabMap[mode] * 100}%)`;
+                Object.keys(tabs).forEach(k => { tabs[k].className = k === mode ? 'relative z-10 flex-1 py-1.5 text-xs rounded-md text-white font-semibold transition-colors' : 'relative z-10 flex-1 py-1.5 text-xs rounded-md text-zinc-400 font-normal transition-colors'; });
+                uploadArea.classList.toggle('hidden', mode !== 'image'); batchArea.classList.toggle('hidden', mode !== 'batch'); batchParamHint.classList.toggle('hidden', mode !== 'batch'); videoUploadArea.classList.toggle('hidden', mode !== 'video'); cameraArea.classList.toggle('hidden', mode !== 'camera');
+                videoPlaybackControls.classList.add('hidden'); sourceMode = mode;
+                if (mode === 'image' && originalImage) { setupOffscreenCanvasForImage(originalImage); renderArt(); showWorkspace(); } else if (mode === 'batch' && batchImages.length > 0) { selectBatchImage(currentBatchIndex >= 0 ? currentBatchIndex : 0); showWorkspace(); } else if (mode === 'image' || mode === 'batch') { hideWorkspace(); }
+                updateActionButtonUI();
+            }
+            Object.keys(tabs).forEach(k => tabs[k].addEventListener('click', () => switchTab(k)));
+
+            folderInput.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/')); if (files.length === 0) return;
+                isSelectAll = false; selectAllBatchBtn.classList.remove('bg-blue-500/40', 'text-white'); selectAllBatchBtn.classList.add('text-blue-400'); batchParamHintText.innerText = "仅调整当前选中图片";
+                batchUploadState.classList.add('hidden'); batchListState.classList.remove('hidden'); batchImages = []; batchThumbnailList.innerHTML = ''; batchCountText.innerText = `处理中 0/${files.length}`;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i]; const img = await loadImageAsPromise(file); batchImages.push({ name: file.name, img: img, params: getDefaultParams() });
+                    const thumb = document.createElement('div'); thumb.className = `aspect-square bg-black/40 rounded-md overflow-hidden cursor-pointer transition-all border-[2px] ${i === 0 ? 'border-white shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'border-transparent'}`;
+                    thumb.dataset.index = i; thumb.onclick = () => selectBatchImage(i); const thumbImg = document.createElement('img'); thumbImg.src = img.src; thumbImg.className = 'w-full h-full object-cover'; thumb.appendChild(thumbImg); batchThumbnailList.appendChild(thumb);
+                    if(i % 5 === 0) batchCountText.innerText = `处理中 ${i}/${files.length}`;
+                }
+                batchCountText.innerText = `共 ${batchImages.length} 张图片`; selectBatchImage(0); showWorkspace();
+            });
+
+            selectAllBatchBtn.addEventListener('click', () => {
+                if (batchImages.length === 0) return; isSelectAll = !isSelectAll;
+                if (isSelectAll) { selectAllBatchBtn.classList.add('bg-blue-500/40', 'text-white'); selectAllBatchBtn.classList.remove('text-blue-400'); batchParamHintText.innerText = "将应用到所有图片 (全选模式)"; Array.from(batchThumbnailList.children).forEach((child) => { child.classList.add('border-white'); child.classList.remove('border-transparent'); }); updateCurrentBatchParams(); } 
+                else { selectBatchImage(currentBatchIndex >= 0 ? currentBatchIndex : 0); }
+            });
+            clearBatchBtn.addEventListener('click', () => { batchImages = []; currentBatchIndex = -1; isSelectAll = false; selectAllBatchBtn.classList.remove('bg-blue-500/40', 'text-white'); selectAllBatchBtn.classList.add('text-blue-400'); batchThumbnailList.innerHTML = ''; batchUploadState.classList.remove('hidden'); batchListState.classList.add('hidden'); folderInput.value = ''; hideWorkspace(); updateActionButtonUI(); });
+
+            function selectBatchImage(index) {
+                if (index < 0 || index >= batchImages.length) return; currentBatchIndex = index; const item = batchImages[index]; isSelectAll = false; selectAllBatchBtn.classList.remove('bg-blue-500/40', 'text-white'); selectAllBatchBtn.classList.add('text-blue-400'); batchParamHintText.innerText = "仅调整当前选中图片";
+                Array.from(batchThumbnailList.children).forEach((child, i) => { child.classList.toggle('border-white', i === index); child.classList.toggle('shadow-[0_0_8px_rgba(255,255,255,0.4)]', i === index); child.classList.toggle('border-transparent', i !== index); });
+                const p = item.params; blockSizeSlider.value = p.blockSize; document.getElementById('a1_blockSizeVal').innerText = p.blockSize + 'px'; contrastSlider.value = p.contrast; document.getElementById('a1_contrastVal').innerText = p.contrast.toFixed(1); bgRadios.forEach(r => { r.checked = (r.value === p.bgColor); }); setStyleMode(p.isColorMode, false); setMappingMode(p.isNormalMapping, false); setupOffscreenCanvasForImage(item.img); renderArt();
+            }
+
+            imageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
+                reader.onload = (event) => { const img = new Image(); img.onload = () => { originalImage = img; showWorkspace(); setupOffscreenCanvasForImage(img); renderArt(); const sheet = document.getElementById('a1_sidebar'); if(sheet.openSheet) sheet.openSheet(); }; img.src = event.target.result; }; reader.readAsDataURL(file);
+            });
+
+            videoInput.addEventListener('change', (e) => {
+                const file = e.target.files[0]; if (!file) return; const url = URL.createObjectURL(file); videoElement.src = url; videoElement.loop = true;
+                videoElement.onloadedmetadata = () => { videoElement.play(); videoPlaybackControls.classList.remove('hidden'); iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); showWorkspace(); processContinuousFrame(); const sheet = document.getElementById('a1_sidebar'); if(sheet.openSheet) sheet.openSheet(); };
+            });
+
+            playPauseBtn.addEventListener('click', () => { if (videoElement.paused) { videoElement.play(); iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); } else { videoElement.pause(); iconPause.classList.add('hidden'); iconPlay.classList.remove('hidden'); } });
+            restartVideoBtn.addEventListener('click', () => { videoElement.currentTime = 0; if (videoElement.paused) { videoElement.play(); iconPlay.classList.add('hidden'); iconPause.classList.remove('hidden'); } });
+
+            function stopStreamOrVideo() {
+                if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+                if (videoElement.srcObject) { videoElement.srcObject.getTracks().forEach(track => track.stop()); videoElement.srcObject = null; }
+                if (videoElement.src) { videoElement.pause(); videoElement.removeAttribute('src'); videoElement.load(); }
+                document.getElementById('a1_miniCamWrapper').classList.add('hidden');
+                document.getElementById('a1_miniCamVideo').srcObject = null;
+                startCamBtn.classList.remove('hidden'); stopCamBtn.classList.add('hidden'); if(isRecording) toggleRecording(); 
+            }
+            window.a1_stopStream = stopStreamOrVideo;
+            closeCamErrorBtn.addEventListener('click', () => camError.classList.add('hidden'));
+
+            startCamBtn.addEventListener('click', async () => {
+                camError.classList.add('hidden');
+                try {
+                    startCamBtn.innerHTML = "正在请求..."; if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("环境不支持调用摄像头");
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } }); 
+                    videoElement.srcObject = stream;
+                    document.getElementById('a1_miniCamVideo').srcObject = stream; // 绑定到悬浮小视窗
+                    
+                    videoElement.onloadedmetadata = async () => { 
+                        await videoElement.play(); 
+                        startCamBtn.innerHTML = `启动前置摄像头`; 
+                        startCamBtn.classList.add('hidden'); 
+                        stopCamBtn.classList.remove('hidden'); 
+                        document.getElementById('a1_miniCamWrapper').classList.remove('hidden'); // 显示小视窗
+                        
+                        // 每次启动重置为展开状态
+                        isMiniCamHidden = false;
+                        document.getElementById('a1_miniCamWrapper').style.transform = 'translateX(0)';
+                        document.getElementById('a1_miniCamToggle').querySelector('svg').style.transform = 'rotate(0deg)';
+
+                        showWorkspace(); 
+                        processContinuousFrame(); 
+                        const sheet = document.getElementById('a1_sidebar'); if(sheet.closeSheet) sheet.closeSheet(); 
+                    };
+                } catch (err) { startCamBtn.innerHTML = `启动前置摄像头`; camError.classList.remove('hidden'); }
+            });
+            stopCamBtn.addEventListener('click', stopStreamOrVideo);
+
+            function showWorkspace() { controls.style.opacity = '1'; controls.style.pointerEvents = 'auto'; placeholder.style.opacity = '0'; setTimeout(() => placeholder.style.display = 'none', 500); artCanvas.classList.remove('opacity-0'); mainActionBtn.classList.remove('hidden'); updateActionButtonUI(); }
+            function hideWorkspace() { controls.style.opacity = '0.3'; controls.style.pointerEvents = 'none'; placeholder.style.display = 'flex'; setTimeout(() => placeholder.style.opacity = '1', 50); artCanvas.classList.add('opacity-0'); mainActionBtn.classList.add('hidden'); }
+
+            function processContinuousFrame() {
+                if (['image', 'batch'].includes(sourceMode)) return;
+                if (!isExporting && videoElement.readyState >= 2 && videoElement.videoWidth > 0 && !videoElement.paused) { 
+                    const maxVideoProcessingWidth = 600; let vW = videoElement.videoWidth; let vH = videoElement.videoHeight;
+                    if (vW > maxVideoProcessingWidth) { const ratio = maxVideoProcessingWidth / vW; vW = maxVideoProcessingWidth; vH = Math.floor(vH * ratio); }
+                    if (offscreenCanvas.width !== vW) { offscreenCanvas.width = vW; offscreenCanvas.height = vH; }
+                    offscreenCtx.save(); if (sourceMode === 'camera') { offscreenCtx.scale(-1, 1); offscreenCtx.translate(-offscreenCanvas.width, 0); }
+                    offscreenCtx.drawImage(videoElement, 0, 0, offscreenCanvas.width, offscreenCanvas.height); offscreenCtx.restore(); renderArt(true); 
+                }
+                animationFrameId = requestAnimationFrame(processContinuousFrame);
+            }
+
+            function setStyleMode(colorMode, shouldRender = true) {
+                isColorMode = colorMode; document.getElementById('a1_styleSlider').style.transform = colorMode ? 'translateX(100%)' : 'translateX(0)';
+                const btnColor = document.getElementById('a1_styleColor'); const btnBW = document.getElementById('a1_styleBW');
+                btnColor.className = colorMode ? 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95' : 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-zinc-400 font-normal flex flex-col items-center justify-center gap-0.5 active:scale-95';
+                btnBW.className = !colorMode ? 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95' : 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-zinc-400 font-normal flex flex-col items-center justify-center gap-0.5 active:scale-95';
+                if (shouldRender) { updateCurrentBatchParams(); if (['image', 'batch'].includes(sourceMode)) renderArt(); }
+            }
+
+            function setMappingMode(normalMapping, shouldRender = true) {
+                isNormalMapping = normalMapping; document.getElementById('a1_mapSlider').style.transform = normalMapping ? 'translateX(0)' : 'translateX(100%)';
+                const btnNormal = document.getElementById('a1_mapNormal'); const btnInvert = document.getElementById('a1_mapInvert');
+                btnNormal.className = normalMapping ? 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95' : 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95';
+                btnInvert.className = !normalMapping ? 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-white font-semibold flex flex-col items-center justify-center gap-0.5 active:scale-95' : 'relative z-10 flex-1 py-1.5 text-sm rounded-md transition-colors duration-300 text-zinc-400 font-normal flex flex-col items-center justify-center gap-0.5 active:scale-95';
+                if (shouldRender) { updateCurrentBatchParams(); if (['image', 'batch'].includes(sourceMode)) renderArt(); }
+            }
+
+            function getClosestColorIndex(r, g, b) {
+                let minDist = Infinity; let bestIndex = 0;
+                for (let i = 0; i < PALETTE.length; i++) { let dist = Math.pow(PALETTE[i].r - r, 2) + Math.pow(PALETTE[i].g - g, 2) + Math.pow(PALETTE[i].b - b, 2); if (dist < minDist) { minDist = dist; bestIndex = i; } } return bestIndex;
+            }
+
+            function getArtGridData(overrideParams = null) {
+                const blockSize = overrideParams ? overrideParams.blockSize : parseInt(blockSizeSlider.value); const contrast = overrideParams ? overrideParams.contrast : parseFloat(contrastSlider.value); const bgColor = overrideParams ? overrideParams.bgColor : document.querySelector('input[name="a1_bgColor"]:checked').value; const colorMode = overrideParams ? overrideParams.isColorMode : isColorMode; const normalMap = overrideParams ? overrideParams.isNormalMapping : isNormalMapping;
+                const isDarkBg = bgColor === '#000000'; const width = offscreenCanvas.width; const height = offscreenCanvas.height; const cols = Math.floor(width / blockSize); const rows = Math.floor(height / blockSize); const imgData = offscreenCtx.getImageData(0, 0, width, height).data; const grid = [];
+                for (let y = 0; y < rows; y++) {
+                    const row = [];
+                    for (let x = 0; x < cols; x++) {
+                        let totalR = 0, totalG = 0, totalB = 0, count = 0; const startY = y * blockSize; const startX = x * blockSize;
+                        for (let by = 0; by < blockSize; by++) { for (let bx = 0; bx < blockSize; bx++) { const idx = ((startY + by) * width + (startX + bx)) * 4; totalR += imgData[idx]; totalG += imgData[idx + 1]; totalB += imgData[idx + 2]; count++; } }
+                        const avgR = totalR / count; const avgG = totalG / count; const avgB = totalB / count; let luminance = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB; luminance = ((luminance / 255 - 0.5) * contrast + 0.5) * 255; luminance = Math.max(0, Math.min(255, luminance)); if (!normalMap) luminance = 255 - luminance;
+                        let patternIndex = Math.floor((luminance / 255) * 7); patternIndex = Math.max(0, Math.min(6, patternIndex)); let c1, c2;
+                        if (colorMode) { let c1_idx = getClosestColorIndex(avgR, avgG, avgB); let offset = ((x + y * cols) % 4) + 1; let c2_idx = (c1_idx + offset) % 5; c1 = PALETTE[c1_idx]; c2 = PALETTE[c2_idx]; } else { const pureColor = isDarkBg ? {r:255,g:255,b:255} : {r:0,g:0,b:0}; c1 = pureColor; c2 = pureColor; } row.push({ pattern: patternIndex, c1, c2 });
+                    } grid.push(row);
+                } return { grid, cols, rows, blockSize, bgColor };
+            }
+
+            function renderArt(isStream = false) {
+                if (!isStream && sourceMode === 'image' && !originalImage) return; if (!isStream && sourceMode === 'batch' && batchImages.length === 0) return; if (isStream && offscreenCanvas.width === 0) return;
+                const data = getArtGridData(); if (artCanvas.width !== data.cols * data.blockSize) { artCanvas.width = data.cols * data.blockSize; artCanvas.height = data.rows * data.blockSize; }
+                artCanvas.style.backgroundColor = data.bgColor; ctx.fillStyle = data.bgColor; ctx.fillRect(0, 0, artCanvas.width, artCanvas.height);
+                for (let y = 0; y < data.rows; y++) { for (let x = 0; x < data.cols; x++) { const cell = data.grid[y][x]; drawStrictGeometry(ctx, null, x * data.blockSize, y * data.blockSize, data.blockSize, cell.pattern, cell.c1, cell.c2, data.bgColor); } }
+            }
+
+            function drawStrictGeometry(ctx, doc, x, y, size, index, c1, c2, baseBgColor) {
+                if (index === 6) return; const setColor = (colorObj) => { const rgbStr = `rgb(${colorObj.r},${colorObj.g},${colorObj.b})`; if (ctx) { ctx.fillStyle = rgbStr; ctx.strokeStyle = rgbStr; } if (doc) { doc.setFillColor(colorObj.r, colorObj.g, colorObj.b); doc.setDrawColor(colorObj.r, colorObj.g, colorObj.b); } }; const drawRect = (rx, ry, rw, rh) => { if (ctx) ctx.fillRect(rx, ry, rw, rh); if (doc) doc.rect(rx, ry, rw, rh, 'F'); }; const drawCircle = (cx, cy, radius) => { if (ctx) { ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill(); } if (doc) { doc.circle(cx, cy, radius, 'F'); } }; const cx = x + size / 2; const cy = y + size / 2; const segment = size * 0.2; 
+                switch(index) { case 0: setColor(c1); drawRect(x, y, size, size); break; case 1: setColor(c1); drawCircle(cx, cy, size * 0.45); break; case 2: const isVertical = (Math.round(x / size) + Math.round(y / size)) % 2 === 0; if (c1.r !== c2.r || c1.g !== c2.g || c1.b !== c2.b) { setColor(c2); drawRect(x, y, size, size); } setColor(c1); if (isVertical) { drawRect(x, y, segment, size); drawRect(x + segment * 2, y, segment, size); drawRect(x + segment * 4, y, segment, size); } else { drawRect(x, y, size, segment); drawRect(x, y + segment * 2, size, segment); drawRect(x, y + segment * 4, size, segment); } break; case 3: setColor(c1); drawCircle(cx, cy, size * 0.45); if (ctx) ctx.fillStyle = baseBgColor; if (doc) { const bgBlack = baseBgColor === '#000000'; doc.setFillColor(bgBlack ? 0 : 255, bgBlack ? 0 : 255, bgBlack ? 0 : 255); } drawCircle(cx, cy, size * 0.28); setColor(c2); drawCircle(cx, cy, size * 0.12); break; case 4: for(let i=0; i<3; i++) { for(let j=0; j<3; j++) { if ((i+j)%2 === 0) setColor(c1); else setColor(c2); drawRect(x + i*segment*2, y + j*segment*2, segment, segment); } } break; case 5: const ringRadius = size * 0.35, ringThickness = size * 0.12, arcAngle = Math.PI / 8; for(let i=0; i<8; i++) { if (i%2 === 0) setColor(c1); else setColor(c2); let angle = (i * Math.PI) / 4; let startAngle = angle - arcAngle / 2; let endAngle = angle + arcAngle / 2; if (ctx) { ctx.beginPath(); ctx.arc(cx, cy, ringRadius, startAngle, endAngle); ctx.lineWidth = ringThickness; ctx.lineCap = 'butt'; ctx.stroke(); } if (doc) { const innerR = ringRadius - ringThickness / 2, outerR = ringRadius + ringThickness / 2, steps = 3, stepA = (endAngle - startAngle) / steps; const pts = []; for(let s=0; s<=steps; s++) pts.push([cx + outerR * Math.cos(startAngle + stepA * s), cy + outerR * Math.sin(startAngle + stepA * s)]); for(let s=steps; s>=0; s--) pts.push([cx + innerR * Math.cos(startAngle + stepA * s), cy + innerR * Math.sin(startAngle + stepA * s)]); let startX = pts[0][0], startY = pts[0][1], lines = []; for(let k=1; k<pts.length; k++) lines.push([pts[k][0] - pts[k-1][0], pts[k][1] - pts[k-1][1]]); doc.lines(lines, startX, startY, [1,1], 'F', true); } } break; }
+            }
+
+            function updateActionButtonUI() {
+                if (sourceMode === 'image') { btnIconDownload.classList.remove('hidden'); btnIconZip.classList.add('hidden'); btnIconRecord.classList.add('hidden'); btnText.innerText = "单图导出"; mainActionBtn.classList.remove('recording-active', 'text-red-400'); mainActionBtn.classList.add('text-white', 'hover:bg-white/10'); } 
+                else if (sourceMode === 'batch') { btnIconDownload.classList.add('hidden'); btnIconZip.classList.remove('hidden'); btnIconRecord.classList.add('hidden'); btnText.innerText = "批量打包"; mainActionBtn.classList.remove('recording-active', 'text-red-400'); mainActionBtn.classList.add('text-white', 'hover:bg-white/10'); if(batchImages.length === 0) mainActionBtn.classList.add('hidden'); } 
+                else { btnIconDownload.classList.add('hidden'); btnIconZip.classList.add('hidden'); btnIconRecord.classList.remove('hidden'); if (isRecording) { btnText.innerText = `停止保存`; mainActionBtn.classList.add('recording-active', 'text-red-400'); mainActionBtn.classList.remove('text-white'); } else { btnText.innerText = `录制`; mainActionBtn.classList.remove('recording-active', 'text-red-400'); mainActionBtn.classList.add('text-white'); } }
+            }
+
+            function handleMainAction() { if (sourceMode === 'image') generatePDF(); else if (sourceMode === 'batch') handleBatchExport(); else toggleRecording(); }
+            function generateSinglePDFBlob(itemParams) { const { jsPDF } = window.jspdf; const data = getArtGridData(itemParams); const pdfWidth = data.cols * data.blockSize; const pdfHeight = data.rows * data.blockSize; const doc = new jsPDF({ orientation: pdfWidth > pdfHeight ? 'l' : 'p', unit: 'px', format: [pdfWidth, pdfHeight] }); const bgArr = data.bgColor === '#000000' ? [0,0,0] : [255,255,255]; doc.setFillColor(...bgArr); doc.rect(0, 0, pdfWidth, pdfHeight, 'F'); for (let y = 0; y < data.rows; y++) { for (let x = 0; x < data.cols; x++) { const cell = data.grid[y][x]; drawStrictGeometry(null, doc, x * data.blockSize, y * data.blockSize, data.blockSize, cell.pattern, cell.c1, cell.c2, data.bgColor); } } return doc.output('blob'); }
+
+            async function generatePDF() {
+                if (!originalImage || !window.jspdf) return; isExporting = true; const originalText = btnText.innerText; btnText.innerText = "处理中"; mainActionBtn.classList.add('opacity-75');
+                setTimeout(() => { const blob = generateSinglePDFBlob(null); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `matrix-studio-vector-${Date.now()}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); btnText.innerText = originalText; mainActionBtn.classList.remove('opacity-75'); isExporting = false; }, 50);
+            }
+
+            async function handleBatchExport() {
+                if (batchImages.length === 0 || !window.jspdf || !window.JSZip) return; isExporting = true; const originalText = btnText.innerText; mainActionBtn.classList.add('opacity-75'); const zip = new JSZip();
+                for (let i = 0; i < batchImages.length; i++) { btnText.innerText = `生成 ${i+1}/${batchImages.length}`; await new Promise(resolve => setTimeout(resolve, 50)); const item = batchImages[i]; setupOffscreenCanvasForImage(item.img); const pdfBlob = generateSinglePDFBlob(item.params); const cleanName = item.name.replace(/\.[^/.]+$/, ""); zip.file(`matrix_${cleanName}.pdf`, pdfBlob); }
+                btnText.innerText = "打包中"; await new Promise(resolve => setTimeout(resolve, 50));
+                try { const content = await zip.generateAsync({type:"blob"}); const url = URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `Matrix-Batch-Export-${Date.now()}.zip`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); } catch (err) { alert("打包失败，可能是文件过多。"); }
+                btnText.innerText = originalText; mainActionBtn.classList.remove('opacity-75'); isExporting = false; if (currentBatchIndex >= 0) { selectBatchImage(currentBatchIndex); }
+            }
+
+            function toggleRecording() {
+                if (!isRecording) {
+                    try { const stream = artCanvas.captureStream(30); mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); }; mediaRecorder.onstop = () => { const blob = new Blob(recordedChunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = `matrix-studio-video-${Date.now()}.webm`; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100); recordedChunks = []; }; mediaRecorder.start(); isRecording = true; updateActionButtonUI(); } catch (e) { alert("浏览器不支持视频录制功能"); }
+                } else { if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); } isRecording = false; updateActionButtonUI(); }
+            }
+
+        })();
+    </script>
+
+    <!-- ========================================== -->
+    <!-- APP 2: 3D 空间交互引擎 JS (包含定制下拉组件) -->
+    <!-- ========================================== -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+        // --- 定制化选择器 JS 逻辑 ---
+        const iconThemes = window.GAFA_DATA.iconThemes; 
+        const themePalettes = window.GAFA_DATA.themePalettes; 
+        const baseMaps = window.GAFA_DATA.baseMaps;
+        let currentThemeIndex = 0;
+
+        const customThemeSelector = document.getElementById('customThemeSelector');
+        const themeDisplay = document.getElementById('a2_themeDisplay');
+        const themeText = document.getElementById('a2_themeText');
+        const themeDropdown = document.getElementById('a2_themeDropdown');
+        const themeList = document.getElementById('a2_themeList');
+        const themeIcon = document.getElementById('a2_themeIcon');
+
+        let isThemeOpen = false;
+
+        // 构建自定义下拉选项
+        iconThemes.forEach((theme, index) => {
+            const opt = document.createElement('div');
+            opt.className = 'py-2.5 px-4 rounded-lg text-[13px] text-zinc-300 hover:bg-white/10 active:bg-white/20 cursor-pointer transition-colors whitespace-nowrap';
+            opt.innerText = theme;
+            opt.onclick = (e) => {
+                e.stopPropagation();
+                selectTheme(index);
+                themeText.innerText = theme;
+                closeThemeDropdown();
+            };
+            themeList.appendChild(opt);
+        });
+
+        function toggleThemeDropdown() {
+            isThemeOpen = !isThemeOpen;
+            if (isThemeOpen) {
+                themeDropdown.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+                themeIcon.style.transform = 'rotate(180deg)';
+                
+                Array.from(themeList.children).forEach((child, i) => {
+                    if(i === currentThemeIndex) {
+                        child.classList.add('bg-white/[0.15]', 'text-white', 'font-medium');
+                        child.classList.remove('text-zinc-300', 'hover:bg-white/10');
+                    } else {
+                        child.classList.remove('bg-white/[0.15]', 'text-white', 'font-medium');
+                        child.classList.add('text-zinc-300', 'hover:bg-white/10');
+                    }
+                });
+
+                setTimeout(() => {
+                    const activeEl = themeList.children[currentThemeIndex];
+                    if(activeEl) activeEl.scrollIntoView({block: 'nearest'});
+                }, 50);
+            } else {
+                closeThemeDropdown();
+            }
+        }
+
+        function closeThemeDropdown() {
+            isThemeOpen = false;
+            themeDropdown.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+            themeIcon.style.transform = 'rotate(0deg)';
+        }
+
+        themeDisplay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleThemeDropdown();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!customThemeSelector.contains(e.target) && isThemeOpen) {
+                closeThemeDropdown();
+            }
+        });
+
+        // --- 宇宙背景引擎初始化 ---
+        const bgCanvas = document.getElementById('globalBgCanvas');
+        
+        // 【关键修复】: 将 alpha 设为 true，这样底层 WebGL 的 Canvas 才是透明的
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: false, alpha: true }); 
+        
+        bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
+        const bgScene = new THREE.Scene(); 
+        
+        bgScene.fog = new THREE.FogExp2(0x050505, 0.0008); 
+
+        // 重新添加上个版本意外遗失的背景相机声明！
+        const bgCamera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 3000); 
+        bgCamera.position.z = 800;
+        
+        const bgGroup = new THREE.Group(); bgScene.add(bgGroup);
+        bgScene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        const bgLight1 = new THREE.PointLight(0xffffff, 1.2, 1200); bgLight1.position.set(200, 300, 400); bgScene.add(bgLight1);
+        const bgLight2 = new THREE.PointLight(0x2562E9, 2.0, 1200); bgLight2.position.set(-200, -200, 200); bgScene.add(bgLight2);
+
+        const bgStarsGeo = new THREE.BufferGeometry(); const bgStarsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, transparent: true, opacity: 0.4 });
+        const bgStarsVerts = []; for (let i = 0; i < 600; i++) { bgStarsVerts.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000); }
+        bgStarsGeo.setAttribute('position', new THREE.Float32BufferAttribute(bgStarsVerts, 3)); bgScene.add(new THREE.Points(bgStarsGeo, bgStarsMat));
+
+        window.addEventListener('resize', () => { bgRenderer.setSize(window.innerWidth, window.innerHeight); bgCamera.aspect = window.innerWidth / window.innerHeight; bgCamera.updateProjectionMatrix(); });
+
+        const colorPalette = document.getElementById('a2_colorPalette'); const modeBadge = document.getElementById('a2_modeBadge');
+
+        function selectTheme(index) { currentThemeIndex = index; isAllMode = false; if (transitionState === 0) { pendingThemeIndex = index; isAutoTransition = false; transitionState = 1; } else { buildSingleScene(index); } }
+        function updateColorUI(index) {
+            const hexColors = themePalettes[index]; colorPalette.innerHTML = '';
+            hexColors.slice(0, 2).forEach(hex => { const div = document.createElement('div'); div.className = 'w-5 h-5 rounded-full border border-white/20 shadow-sm'; div.style.backgroundColor = '#' + hex.toString(16).padStart(6, '0'); colorPalette.appendChild(div); });
+        }
+
+        const DitherShader = {
+            uniforms: { "tDiffuse": { value: null }, "amount": { value: 0.0 }, "resolution": { value: new THREE.Vector2() } },
+            vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+            fragmentShader: `uniform sampler2D tDiffuse; uniform float amount; uniform vec2 resolution; varying vec2 vUv; float dither4x4(vec2 pos) { int x = int(mod(pos.x, 4.0)); int y = int(mod(pos.y, 4.0)); int i = x + y * 4; if(i==0)return 0./16.; if(i==1)return 8./16.; if(i==2)return 2./16.; if(i==3)return 10./16.; if(i==4)return 12./16.; if(i==5)return 4./16.; if(i==6)return 14./16.; if(i==7)return 6./16.; if(i==8)return 3./16.; if(i==9)return 11./16.; if(i==10)return 1./16.; if(i==11)return 9./16.; if(i==12)return 15./16.; if(i==13)return 7./16.; if(i==14)return 13./16.; return 5./16.; } void main() { float maxPixel = 12.0; float curPixel = mix(1.0, maxPixel, amount); vec2 pixUV = floor(vUv * resolution / curPixel) * curPixel / resolution; vec4 texColor = texture2D(tDiffuse, pixUV); float luma = dot(texColor.rgb, vec3(0.299, 0.587, 0.114)); float threshold = mix(0.2, 0.8, dither4x4(vUv * resolution / curPixel)); gl_FragColor = vec4(mix(texColor.rgb, vec3(step(threshold, luma)), amount), 1.0); }`
+        };
+
+        const container = document.getElementById('a2_three-canvas-container');
+        const scene = new THREE.Scene(); scene.background = null; scene.fog = new THREE.FogExp2(0x000000, 0.001);
+        let width = container.clientWidth || window.innerWidth; let height = container.clientHeight || window.innerHeight;
+        const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 3000); let targetCameraZ = 190; camera.position.z = targetCameraZ; 
+        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true }); renderer.setSize(width, height); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setClearColor( 0x000000, 0 ); container.appendChild(renderer.domElement);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9)); const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(50, 100, 150); scene.add(dirLight);
+
+        const starsGeo = new THREE.BufferGeometry(); const starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1, transparent: true, opacity: 0.8 });
+        const starsVerts = []; for (let i = 0; i < 3000; i++) starsVerts.push(THREE.MathUtils.randFloatSpread(1500), THREE.MathUtils.randFloatSpread(1500), THREE.MathUtils.randFloatSpread(1500));
+        starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starsVerts, 3)); scene.add(new THREE.Points(starsGeo, starsMat));
+
+        const lettersGroup = new THREE.Group(); scene.add(lettersGroup);
+
+        const TILE_SIZE = 10; const DEPTH = 10;
+        function createSolid(mat) { return new THREE.Mesh(new THREE.BoxGeometry(TILE_SIZE, TILE_SIZE, DEPTH), mat); }
+        function createGrid(mat) { const group = new THREE.Group(); const lt = TILE_SIZE * 0.15; const cs = (TILE_SIZE - 2 * lt) / 3; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) { const mesh = new THREE.Mesh(new THREE.BoxGeometry(cs, cs, DEPTH), mat); mesh.position.set((i - 1) * (cs + lt), (1 - j) * (cs + lt), 0); group.add(mesh); } return group; }
+        function create5Stripes(mat1, mat2, isH) { const group = new THREE.Group(); const sw = TILE_SIZE / 5; for (let i = 0; i < 5; i++) { const mesh = new THREE.Mesh(isH ? new THREE.BoxGeometry(TILE_SIZE, sw, DEPTH) : new THREE.BoxGeometry(sw, TILE_SIZE, DEPTH), i % 2 === 0 ? mat1 : mat2); if (isH) mesh.position.y = (2 - i) * sw; else mesh.position.x = (i - 2) * sw; group.add(mesh); } return group; }
+        function createPureStripes(mat, isH) { const group = new THREE.Group(); const sw = TILE_SIZE / 5; for (let i = 0; i < 5; i += 2) { const mesh = new THREE.Mesh(isH ? new THREE.BoxGeometry(TILE_SIZE, sw, DEPTH) : new THREE.BoxGeometry(sw, TILE_SIZE, DEPTH), mat); if (isH) mesh.position.y = (2 - i) * sw; else mesh.position.x = (i - 2) * sw; group.add(mesh); } return group; }
+        function createConcentricCircle(matO, matM, matI) { const group = new THREE.Group(); const ext = { depth: DEPTH, bevelEnabled: false, curveSegments: 32 }; const ring = (oR, iR, mat) => { const s = new THREE.Shape(); s.absarc(0, 0, oR, 0, Math.PI * 2, false); const h = new THREE.Path(); h.absarc(0, 0, iR, 0, Math.PI * 2, true); s.holes.push(h); const geo = new THREE.ExtrudeGeometry(s, ext); geo.translate(0, 0, -DEPTH/2); return new THREE.Mesh(geo, mat); }; const R = TILE_SIZE / 2; group.add(ring(R, R * 0.65, matO)); group.add(ring(R * 0.65, R * 0.35, matM)); const cg = new THREE.CylinderGeometry(R * 0.35, R * 0.35, DEPTH, 32); cg.rotateX(Math.PI / 2); group.add(new THREE.Mesh(cg, matI)); return group; }
+        function createDashedCircle(mat) { const group = new THREE.Group(); const R = TILE_SIZE / 2; const rI = R * 0.65; const ext = { depth: DEPTH, bevelEnabled: false, curveSegments: 4 }; for (let i = 0; i < 8; i++) { const s = new THREE.Shape(); const a1 = (i / 8) * Math.PI * 2; const a2 = a1 + (Math.PI * 2 / 8) * 0.6; s.absarc(0, 0, R, a1, a2, false); s.lineTo(Math.cos(a2) * rI, Math.sin(a2) * rI); s.absarc(0, 0, rI, a2, a1, true); s.lineTo(Math.cos(a1) * R, Math.sin(a1) * R); const geo = new THREE.ExtrudeGeometry(s, ext); geo.translate(0, 0, -DEPTH/2); group.add(new THREE.Mesh(geo, mat)); } return group; }
+        function createSolidCircle(mat) { const geo = new THREE.CylinderGeometry(TILE_SIZE/2, TILE_SIZE/2, DEPTH, 32); geo.rotateX(Math.PI / 2); return new THREE.Mesh(geo, mat); }
+
+        const bgObjects = []; const flyObjects = []; 
+        function createBgUnit(index) {
+            const hexColors = themePalettes[index]; const mats = hexColors.map(hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.85, metalness: 0.1, emissive: hex, emissiveIntensity: 0.2 }));
+            const currentMap = baseMaps[Math.min(index, baseMaps.length - 1)]; const rows = currentMap.length; const cols = currentMap[0].length; const offsetX = (cols * TILE_SIZE) / 2 - (TILE_SIZE / 2); const offsetY = (rows * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+            const unitGroup = new THREE.Group();
+            for (let r = 0; r < rows; r++) { for (let c = 0; c < cols; c++) { const char = currentMap[r][c]; if (char === ".") continue; let block = null; switch (char) { case "S": block = createSolid(mats[0]); break; case "A": block = createSolid(mats[1]); break; case "B": block = createSolid(mats[2]); break; case "G": block = createGrid(mats[0]); break; case "H": block = createGrid(mats[1]); break; case "J": block = createGrid(mats[2]); break; case "|": block = create5Stripes(mats[0], mats[1], false); break; case "!": block = create5Stripes(mats[1], mats[0], false); break; case "I": block = create5Stripes(mats[0], mats[2], false); break; case "i": block = create5Stripes(mats[2], mats[0], false); break; case "-": block = create5Stripes(mats[0], mats[1], true); break; case "_": block = create5Stripes(mats[1], mats[0], true); break; case "=": block = create5Stripes(mats[0], mats[2], true); break; case "+": block = create5Stripes(mats[2], mats[0], true); break; case "U": block = createPureStripes(mats[0], false); break; case "V": block = createPureStripes(mats[1], false); break; case "W": block = createPureStripes(mats[2], false); break; case "E": block = createPureStripes(mats[0], true); break; case "F": block = createPureStripes(mats[1], true); break; case "R": block = createPureStripes(mats[2], true); break; case "O": block = createConcentricCircle(mats[0], mats[1], mats[0]); break; case "o": block = createConcentricCircle(mats[1], mats[0], mats[1]); break; case "Q": block = createConcentricCircle(mats[0], mats[2], mats[0]); break; case "q": block = createConcentricCircle(mats[1], mats[2], mats[1]); break; case "*": block = createSolidCircle(mats[0]); break; case "@": block = createSolidCircle(mats[1]); break; case "#": block = createSolidCircle(mats[2]); break; case "D": block = createDashedCircle(mats[0]); break; case "d": block = createDashedCircle(mats[1]); break; case "b": block = createDashedCircle(mats[2]); break; } if (block) { block.position.set(c * TILE_SIZE - offsetX, -(r * TILE_SIZE) + offsetY, 0); unitGroup.add(block); } } } return unitGroup;
+        }
+
+        const numBgUnits = 16;
+        for(let i = 0; i < numBgUnits; i++) {
+            const unit = createBgUnit(Math.floor(Math.random() * 26) + 1); const s = 1.0 + Math.random() * 0.8; unit.scale.set(s, s, s);
+            unit.position.set((Math.random() - 0.5) * 800, (Math.random() - 0.5) * 600, 550 + Math.random() * 150);
+            unit.userData = { baseX: unit.position.x, baseY: unit.position.y, baseZ: unit.position.z, freqX: 0.0002 + Math.random() * 0.0001, freqY: 0.00015 + Math.random() * 0.0001, freqZ: 0.0001 + Math.random() * 0.0001, phaseX: Math.random() * Math.PI * 2, phaseY: Math.random() * Math.PI * 2, phaseZ: Math.random() * Math.PI * 2, rangeX: 300 + Math.random() * 200, rangeY: 200 + Math.random() * 150, rangeZ: 10 + Math.random() * 10 };
+            bgGroup.add(unit); bgObjects.push(unit);
+        }
+
+        let bgMouseX = 0, bgMouseY = 0;
+        window.addEventListener('mousemove', (e) => { bgMouseX = (e.clientX / window.innerWidth) * 2 - 1; bgMouseY = -(e.clientY / window.innerHeight) * 2 + 1; });
+        
+        // 移动端点击背景飞入单体交互
+        window.addEventListener('touchend', (e) => {
+            if (window.SystemState.activeModule === 'home' || e.target.closest('.bottom-sheet') || e.target.closest('header') || e.target.closest('#mobile-bottom-nav')) return;
+            const vec = new THREE.Vector3(); const pos = new THREE.Vector3();
+            vec.set((e.changedTouches[0].clientX / window.innerWidth) * 2 - 1, -(e.changedTouches[0].clientY / window.innerHeight) * 2 + 1, 0.5); vec.unproject(bgCamera); vec.sub(bgCamera.position).normalize();
+            const targetZ = 600; const distance = (targetZ - bgCamera.position.z) / vec.z; pos.copy(bgCamera.position).add(vec.multiplyScalar(distance));
+            const unit = createBgUnit(Math.floor(Math.random() * 26) + 1); const s = 0.8 + Math.random() * 0.5; unit.scale.set(s, s, s); unit.rotation.set(0, 0, 0); 
+            const angle = Math.random() * Math.PI * 2; const radius = 350; const startPos = new THREE.Vector3(pos.x + Math.cos(angle) * radius, pos.y + Math.sin(angle) * radius, targetZ);
+            unit.position.copy(startPos); bgGroup.add(unit);
+            const speed = 12.0 + Math.random() * 6.0; const velocity = pos.clone().sub(startPos).normalize().multiplyScalar(speed);
+            flyObjects.push({ mesh: unit, velocity: velocity, distanceTraveled: 0, maxDistance: radius * 2.5 });
+        });
+
+        let allBlocks = []; let allIconGroups = []; let isAllMode = false; let targetShapeIndex = 0; let lastMorphTriggerTime = 0; const shapeNames = ['MATRIX', 'RING', 'SPHERE', 'HELIX'];
+
+        function clearScene() {
+            while(lettersGroup.children.length > 0) { let child = lettersGroup.children[0]; lettersGroup.remove(child); child.traverse((n) => { if(n.isMesh) { if(n.geometry) n.geometry.dispose(); if(n.material) { Array.isArray(n.material) ? n.material.forEach(m=>m.dispose()) : n.material.dispose(); } } }); }
+            allBlocks = []; allIconGroups = [];
+        }
+
+        function addIconToScene(index, scale = 1.0) {
+            const hexColors = themePalettes[index]; const mats = hexColors.map(hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.5, metalness: 0.0 }));
+            const currentMap = baseMaps[Math.min(index, baseMaps.length - 1)]; const rows = currentMap.length; const cols = currentMap[0].length;
+            const offsetX = (cols * TILE_SIZE) / 2 - (TILE_SIZE / 2); const offsetY = (rows * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+            const iconGroup = new THREE.Group(); iconGroup.scale.set(scale, scale, scale);
+            let layoutIndex = index; let totalItems = iconThemes.length; if (isAllMode) { layoutIndex = index - 1; totalItems = iconThemes.length - 1; }
+            const gridCols = 6; const col = layoutIndex % gridCols; const row = Math.floor(layoutIndex / gridCols);
+            const gridSpacing = 125; const gridX = (col - 2.5) * gridSpacing; const gridY = (2 - row) * gridSpacing; const gridZ = 0;
+            const ringAngle = (layoutIndex / totalItems) * Math.PI * 2; const ringR = 320; const ringX = Math.cos(ringAngle) * ringR; const ringY = Math.sin(ringAngle) * ringR; const ringZ = 0;
+            const phi = Math.acos(1 - 2 * (layoutIndex + 0.5) / totalItems); const theta = Math.PI * (1 + Math.sqrt(5)) * layoutIndex; const sphereR = 380; const sphereX = sphereR * Math.cos(theta) * Math.sin(phi); const sphereY = sphereR * Math.cos(phi); const sphereZ = sphereR * Math.sin(theta) * Math.sin(phi);
+            const helixAngle = layoutIndex * 0.8; const helixR = 180; const helixYOffset = (totalItems - 1) / 2.0; const helixX = Math.cos(helixAngle) * helixR; const helixY = (layoutIndex - helixYOffset) * 35; const helixZ = Math.sin(helixAngle) * helixR;
+            iconGroup.userData = { index: index, formations: [ new THREE.Vector3(gridX, gridY, gridZ), new THREE.Vector3(ringX, ringY, ringZ), new THREE.Vector3(sphereX, sphereY, sphereZ), new THREE.Vector3(helixX, helixY, helixZ) ], spinSpeed: (Math.random() - 0.5) * 0.02 };
+            iconGroup.position.copy(iconGroup.userData.formations[0]); lettersGroup.add(iconGroup); allIconGroups.push(iconGroup);
+            for (let r = 0; r < rows; r++) { for (let c = 0; c < cols; c++) { const char = currentMap[r][c]; if (char === ".") continue; let block = null; switch (char) { case "S": block = createSolid(mats[0]); break; case "A": block = createSolid(mats[1]); break; case "B": block = createSolid(mats[2]); break; case "G": block = createGrid(mats[0]); break; case "H": block = createGrid(mats[1]); break; case "J": block = createGrid(mats[2]); break; case "|": block = create5Stripes(mats[0], mats[1], false); break; case "!": block = create5Stripes(mats[1], mats[0], false); break; case "I": block = create5Stripes(mats[0], mats[2], false); break; case "i": block = create5Stripes(mats[2], mats[0], false); break; case "-": block = create5Stripes(mats[0], mats[1], true); break; case "_": block = create5Stripes(mats[1], mats[0], true); break; case "=": block = create5Stripes(mats[0], mats[2], true); break; case "+": block = create5Stripes(mats[2], mats[0], true); break; case "U": block = createPureStripes(mats[0], false); break; case "V": block = createPureStripes(mats[1], false); break; case "W": block = createPureStripes(mats[2], false); break; case "E": block = createPureStripes(mats[0], true); break; case "F": block = createPureStripes(mats[1], true); break; case "R": block = createPureStripes(mats[2], true); break; case "O": block = createConcentricCircle(mats[0], mats[1], mats[0]); break; case "o": block = createConcentricCircle(mats[1], mats[0], mats[1]); break; case "Q": block = createConcentricCircle(mats[0], mats[2], mats[0]); break; case "q": block = createConcentricCircle(mats[1], mats[2], mats[1]); break; case "*": block = createSolidCircle(mats[0]); break; case "@": block = createSolidCircle(mats[1]); break; case "#": block = createSolidCircle(mats[2]); break; case "D": block = createDashedCircle(mats[0]); break; case "d": block = createDashedCircle(mats[1]); break; case "b": block = createDashedCircle(mats[2]); break; } if (block) { let localX = (c * TILE_SIZE - offsetX); let localY = (-(r * TILE_SIZE) + offsetY); let localZ = 0; block.position.set(localX, localY, localZ); block.userData = { localX: localX, localY: localY, localZ: localZ, baseScale: 1.0, phase1: Math.random() * Math.PI * 2, phase2: Math.random() * Math.PI * 2, speed1: 0.001 + Math.random() * 0.0015, speed2: 0.0005 + Math.random() * 0.001, scaleMulti: 1.0 + Math.random() * 3.0, chaosOffsetX: (Math.random() - 0.5) * 400, chaosOffsetY: (Math.random() - 0.5) * 400, chaosOffsetZ: (Math.random() - 0.5) * 500, chaosRotX: Math.random() * Math.PI * 4, chaosRotY: Math.random() * Math.PI * 4, chaosRotZ: Math.random() * Math.PI * 4 }; iconGroup.add(block); allBlocks.push(block); } } }
+        }
+
+        function buildSingleScene(index) { clearScene(); targetCameraZ = 280; updateColorUI(index); addIconToScene(index, 1.0); modeBadge.classList.add('hidden'); baseRotationX = 0; baseRotationY = 0; currentScale = 1.0; }
+        function buildAllScenes() { clearScene(); targetCameraZ = 850; modeBadge.classList.remove('hidden'); for(let i=1; i < iconThemes.length; i++) { addIconToScene(i, 0.85); } baseRotationX = 0; baseRotationY = 0; currentScale = 1.0; }
+
+        let autoPlayTimeout; const AUTO_PLAY_DELAY = 8000;
+        function resetAutoPlayTimer() { clearTimeout(autoPlayTimeout); autoPlayTimeout = setTimeout(autoPlayNext, AUTO_PLAY_DELAY); }
+        function autoPlayNext() { if (!isAllMode) { if (transitionState === 0) triggerThemeChange('next', true); } else { targetShapeIndex = (targetShapeIndex + 1) % 4; lastMorphTriggerTime = performance.now(); } resetAutoPlayTimer(); }
+        window.addEventListener('touchstart', resetAutoPlayTimer, {passive: true});
+
+        function toggleMode() { isAllMode = !isAllMode; if (isAllMode) buildAllScenes(); else buildSingleScene(currentThemeIndex); resetAutoPlayTimer(); }
+        document.getElementById('a2_manualModeBtn').addEventListener('click', toggleMode);
+
+        let transitionState = 0; let pendingThemeIndex = 0; let transitionValue = 0.0; let isAutoTransition = false;
+        let currentScale = 1.0, isDragging = false, prevMouse = { x: 0, y: 0 };
+        let initial3DZoom = 1.0, initial3DPinchDist = 0;
+
+        // 移动端全屏拖拽与双指缩放支持
+        container.addEventListener('touchstart', (e) => { 
+            if(e.touches.length===1) {
+                isDragging = true; 
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                initial3DPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                initial3DZoom = currentScale;
+            }
+        }, {passive:false});
+        container.addEventListener('touchmove', (e) => { 
+            if (isDragging && e.touches.length===1) { 
+                e.preventDefault(); 
+                baseRotationY += (e.touches[0].clientX - prevMouse.x) * 0.008; 
+                baseRotationX += (e.touches[0].clientY - prevMouse.y) * 0.008; 
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                currentScale = Math.max(0.3, Math.min(initial3DZoom * (dist / initial3DPinchDist), 3.0));
+            }
+        }, {passive:false});
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
+        const ditherPass = new ShaderPass(DitherShader); ditherPass.uniforms["resolution"].value.set(width * window.devicePixelRatio, height * window.devicePixelRatio); composer.addPass(ditherPass);
+
+        new ResizeObserver(() => {
+            width = container.clientWidth || window.innerWidth; height = container.clientHeight || window.innerHeight;
+            camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height); composer.setSize(width, height); ditherPass.uniforms["resolution"].value.set(width * window.devicePixelRatio, height * window.devicePixelRatio);
+            bgRenderer.setSize(window.innerWidth, window.innerHeight); bgCamera.aspect = window.innerWidth / window.innerHeight; bgCamera.updateProjectionMatrix();
+        }).observe(container);
+
+        let targetDither = 0.0, currentDither = 0.0, targetRotationX = 0, targetRotationY = 0, targetChaos = 0.0, currentChaos = 0.0, baseRotationX = 0, baseRotationY = 0, isTrackingHands = false, isHandDetected = false;
+
+        function animate() {
+            requestAnimationFrame(animate); const time = performance.now(); 
+            bgCamera.position.x += (bgMouseX * 100 - bgCamera.position.x) * 0.02; bgCamera.position.y += (bgMouseY * 100 - bgCamera.position.y) * 0.02; bgCamera.lookAt(bgScene.position);
+            bgObjects.forEach((mesh) => { const data = mesh.userData; mesh.rotation.set(0, 0, 0); mesh.position.x = data.baseX + Math.sin(time * data.freqX + data.phaseX) * data.rangeX; mesh.position.y = data.baseY + Math.cos(time * data.freqY + data.phaseY) * data.rangeY; mesh.position.z = data.baseZ + Math.sin(time * data.freqZ + data.phaseZ) * data.rangeZ; });
+            for (let i = flyObjects.length - 1; i >= 0; i--) { const fly = flyObjects[i]; fly.mesh.position.add(fly.velocity); fly.distanceTraveled += fly.velocity.length(); fly.mesh.rotation.set(0, 0, 0); if (fly.distanceTraveled > fly.maxDistance) { bgGroup.remove(fly.mesh); flyObjects.splice(i, 1); } }
+            bgRenderer.render(bgScene, bgCamera);
+
+            if (window.SystemState.activeModule !== '3d') return; 
+            
+            if (!isAllMode && !isHandDetected && !isDragging) { 
+                targetRotationX += (0 - targetRotationX) * 0.1; 
+                targetRotationY += (0 - targetRotationY) * 0.1; 
+            }
+            const leaveSpeed = isAutoTransition ? 0.025 : 0.06; const enterSpeed = isAutoTransition ? 0.02 : 0.04; const tornadoSpeed = isAutoTransition ? 0.15 : 0.3;
+            if (transitionState === 1) { transitionValue += leaveSpeed; if (transitionValue >= 1.0) { transitionValue = 1.0; buildSingleScene(pendingThemeIndex); transitionState = 2; } } else if (transitionState === 2) { transitionValue -= enterSpeed; if (transitionValue <= 0.0) { transitionValue = 0.0; transitionState = 0; } }
+            
+            camera.position.x += (0 - camera.position.x) * 0.08; camera.position.y += (0 - camera.position.y) * 0.08; camera.position.z += (targetCameraZ - camera.position.z) * 0.05; 
+            
+            currentDither += (targetDither - currentDither) * 0.1; currentChaos += (targetChaos - currentChaos) * 0.1;
+            const easeVal = transitionValue * (2 - transitionValue); const renderDither = Math.min(currentDither + easeVal * 1.0, 1.0); const renderChaos = currentChaos + Math.pow(transitionValue, 2) * 4.0; const renderScale = currentScale * (1.0 - easeVal * 0.95);
+            
+            ditherPass.uniforms["amount"].value = renderDither; lettersGroup.scale.set(renderScale, renderScale, renderScale);
+            lettersGroup.rotation.x += (baseRotationX + targetRotationX - lettersGroup.rotation.x) * 0.15; lettersGroup.rotation.y += (baseRotationY + targetRotationY - lettersGroup.rotation.y) * 0.15;
+            if (transitionState !== 0) { lettersGroup.rotation.y += transitionValue * tornadoSpeed; }
+            
+            if (isAllMode) { const globalTime = time * 0.0005; allIconGroups.forEach((group, i) => { const data = group.userData; const targetPos = data.formations[targetShapeIndex]; group.position.x += (targetPos.x - group.position.x) * 0.06; group.position.y += (targetPos.y - group.position.y) * 0.06; group.position.z += (targetPos.z - group.position.z) * 0.06; group.rotation.y += data.spinSpeed; group.rotation.x = Math.sin(globalTime + i) * 0.1; }); } else { if(allIconGroups[0]) { allIconGroups[0].position.set(0, 0, 0); allIconGroups[0].rotation.set(0, 0, 0); } }
+            
+            allBlocks.forEach(block => {
+                const data = block.userData; const scaleZ = 1.0 + (Math.sin(time * data.speed1 + data.phase1) * data.scaleMulti) * 0.5; block.scale.z = Math.max(0.1, scaleZ) * data.baseScale; 
+                let floatX = Math.sin(time * data.speed1 * 2.0 + data.phase1) * 0.75; let floatY = Math.cos(time * data.speed2 * 2.0 + data.phase2) * 0.75; let floatZ = Math.cos(time * data.speed2 + data.phase2) * 7.5;
+                block.position.x = data.localX + floatX + (data.chaosOffsetX * renderChaos); block.position.y = data.localY + floatY + (data.chaosOffsetY * renderChaos); block.position.z = data.localZ + floatZ + (data.chaosOffsetZ * renderChaos);
+                block.rotation.x = data.chaosRotX * renderChaos; block.rotation.y = data.chaosRotY * renderChaos; block.rotation.z = data.chaosRotZ * renderChaos;
+            });
+            composer.render();
+        }
+
+        // MediaPipe 完整逻辑
+        const videoElement = document.getElementById('a2_webcam'); const trackingCanvas = document.getElementById('a2_tracking-canvas'); const canvasCtx = trackingCanvas.getContext('2d');
+        function isPeaceSign(landmarks) { const wrist = landmarks[0]; const getDist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z); const iTip = getDist(landmarks[8], wrist), iMcp = getDist(landmarks[5], wrist); const mTip = getDist(landmarks[12], wrist), mMcp = getDist(landmarks[9], wrist); const rTip = getDist(landmarks[16], wrist), rMcp = getDist(landmarks[13], wrist); const pTip = getDist(landmarks[20], wrist), pMcp = getDist(landmarks[17], wrist); return (iTip > iMcp * 1.3) && (mTip > mMcp * 1.3) && (rTip < rMcp * 1.15) && (pTip < pMcp * 1.15); }
+        function isFlatHand(landmarks) { const wrist = landmarks[0]; const getDist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z); return (getDist(landmarks[8], wrist) > getDist(landmarks[5], wrist) * 1.05) && (getDist(landmarks[12], wrist) > getDist(landmarks[9], wrist) * 1.05) && (getDist(landmarks[16], wrist) > getDist(landmarks[13], wrist) * 1.05) && (getDist(landmarks[20], wrist) > getDist(landmarks[17], wrist) * 1.05); }
+        function triggerThemeChange(direction, isAuto = false) { if (transitionState !== 0) return; let currentIndex = currentThemeIndex; if (direction === 'next') { currentIndex = (currentIndex + 1) % iconThemes.length; } else { currentIndex = (currentIndex - 1 + iconThemes.length) % iconThemes.length; } currentThemeIndex = currentIndex; themeText.innerText = iconThemes[currentIndex]; pendingThemeIndex = currentIndex; isAutoTransition = isAuto; transitionState = 1; }
+
+        let lastSignTime = 0, lastSwipeTime = 0, swipeState = { isTracking: false, startY: 0, startTime: 0, flatFrames: 0 }, swipeMsg = "", swipeMsgTimer = 0;
+        let hands = null; let cameraUtils = null;
+
+        function onResults(results) {
+            if (!isTrackingHands) { isTrackingHands = true; document.getElementById('a2_loadingOverlay').classList.add('hidden'); document.getElementById('a2_cameraInitUI').classList.add('hidden'); document.getElementById('a2_cameraFeed').classList.remove('hidden'); trackingCanvas.width = document.getElementById('a2_cameraContainer').clientWidth; trackingCanvas.height = document.getElementById('a2_cameraContainer').clientHeight; }
+            const w = trackingCanvas.width; const h = trackingCanvas.height; canvasCtx.save(); canvasCtx.clearRect(0, 0, w, h); const now = performance.now(); let signDetected = false;
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                isHandDetected = true; resetAutoPlayTimer();
+                for (const hand of results.multiHandLandmarks) { if (isPeaceSign(hand)) { signDetected = true; break; } }
+                if (signDetected && (now - lastSignTime > 1500)) { lastSignTime = now; toggleMode(); }
+
+                const hand1 = results.multiHandLandmarks[0]; const tips1 = [hand1[4], hand1[8], hand1[12], hand1[16], hand1[20]]; const cx1 = tips1.reduce((sum, p) => sum + p.x, 0) / 5; const cy1 = tips1.reduce((sum, p) => sum + p.y, 0) / 5; const cx1Px = cx1 * w; const cy1Px = cy1 * h;
+                
+                if (isAllMode) {
+                    const t1 = hand1[4]; const i1 = hand1[8]; const pinchDist1 = Math.sqrt(Math.pow(t1.x - i1.x, 2) + Math.pow(t1.y - i1.y, 2));
+                    if (pinchDist1 < 0.045 && (now - lastMorphTriggerTime > 800)) { targetShapeIndex = (targetShapeIndex + 1) % 4; lastMorphTriggerTime = now; }
+                    targetDither = 0.0; targetRotationY = -(cx1 - 0.5) * Math.PI; targetRotationX = ((cy1 - 0.5) * Math.PI / 2);
+                    const isTriggering = (now - lastMorphTriggerTime < 200); const strokeColor = isTriggering ? 'rgba(255,255,255,0.8)' : 'rgba(244,63,94,0.4)'; const fillColor = isTriggering ? '#ffffff' : '#f43f5e';
+                    canvasCtx.fillStyle = fillColor; canvasCtx.strokeStyle = strokeColor; canvasCtx.lineWidth = isTriggering ? 3 : 2; canvasCtx.beginPath(); canvasCtx.arc(cx1Px, cy1Px, isTriggering ? 8 : 4, 0, 2 * Math.PI); canvasCtx.fill();
+                    tips1.forEach(tip => { const tx = tip.x * w, ty = tip.y * h; canvasCtx.beginPath(); canvasCtx.arc(tx, ty, isTriggering ? 6 : 4, 0, 2 * Math.PI); canvasCtx.fill(); if (isTriggering) canvasCtx.setLineDash([4, 4]); canvasCtx.beginPath(); canvasCtx.moveTo(cx1Px, cy1Px); canvasCtx.lineTo(tx, ty); canvasCtx.stroke(); canvasCtx.setLineDash([]); });
+                    canvasCtx.save(); canvasCtx.translate(cx1Px, cy1Px - 35); canvasCtx.scale(-1, 1); canvasCtx.textAlign = "center"; canvasCtx.font = "600 14px 'PingFang SC', sans-serif"; canvasCtx.fillStyle = fillColor; canvasCtx.fillText("空间形态", 0, 0); canvasCtx.font = "500 10px Inter"; canvasCtx.fillText(`FORM: ${shapeNames[targetShapeIndex]}`, 0, 14); canvasCtx.restore();
+                } else {
+                    let isCurrentlyFlat = isFlatHand(hand1);
+                    if (isCurrentlyFlat) { swipeState.flatFrames = Math.min(swipeState.flatFrames + 1, 8); } else { swipeState.flatFrames = Math.max(swipeState.flatFrames - 1, 0); }
+                    let isSwiping = swipeState.flatFrames > 2;
+
+                    if (isSwiping && (now - lastSwipeTime > 1000)) {
+                        const currentY = cy1; 
+                        if (!swipeState.isTracking) { swipeState.isTracking = true; swipeState.startY = currentY; swipeState.startTime = now; } 
+                        else {
+                            const deltaY = currentY - swipeState.startY; const deltaTime = now - swipeState.startTime;
+                            if (deltaTime < 600) { if (deltaY < -0.08) { triggerThemeChange('prev'); lastSwipeTime = now; swipeState.isTracking = false; swipeMsg = "PREV THEME ↑"; swipeMsgTimer = now; } else if (deltaY > 0.08) { triggerThemeChange('next'); lastSwipeTime = now; swipeState.isTracking = false; swipeMsg = "NEXT THEME ↓"; swipeMsgTimer = now; } } else { swipeState.startY = currentY; swipeState.startTime = now; }
+                        } targetDither = 0.0;
+                    } else {
+                        if (!isSwiping) swipeState.isTracking = false;
+                        const t1 = hand1[4]; const i1 = hand1[8]; const pinchDist1 = Math.sqrt(Math.pow(t1.x - i1.x, 2) + Math.pow(t1.y - i1.y, 2));
+                        targetDither = pinchDist1 < 0.05 ? 0.0 : Math.min((pinchDist1 - 0.05) / 0.25, 1.0);
+                    }
+                    targetRotationY = -(cx1 - 0.5) * Math.PI; targetRotationX = ((cy1 - 0.5) * Math.PI / 2);
+                    const indicatorColor = isSwiping ? '#10b981' : 'white'; const strokeColor = isSwiping ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255,255,255,0.4)';
+                    canvasCtx.fillStyle = indicatorColor; canvasCtx.strokeStyle = strokeColor; canvasCtx.lineWidth = 2; canvasCtx.beginPath(); canvasCtx.arc(cx1Px, cy1Px, 4, 0, 2 * Math.PI); canvasCtx.fill();
+                    tips1.forEach(tip => { const tx = tip.x * w, ty = tip.y * h; canvasCtx.beginPath(); canvasCtx.arc(tx, ty, 4, 0, 2 * Math.PI); canvasCtx.fill(); canvasCtx.beginPath(); canvasCtx.moveTo(cx1Px, cy1Px); canvasCtx.lineTo(tx, ty); canvasCtx.stroke(); });
+                    canvasCtx.save(); canvasCtx.translate(cx1Px, cy1Px - 35); canvasCtx.scale(-1, 1); canvasCtx.textAlign = "center"; canvasCtx.font = "600 14px 'PingFang SC', sans-serif"; canvasCtx.fillStyle = indicatorColor; 
+                    if (now - swipeMsgTimer < 1000 && swipeMsg) { canvasCtx.fillText(swipeMsg, 0, 0); } else if (isSwiping) { canvasCtx.fillText("挥动切换", 0, 0); canvasCtx.font = "500 10px Inter"; canvasCtx.fillText("SWIPE Y-AXIS", 0, 14); } else { canvasCtx.fillText("像素化渐变", 0, 0); canvasCtx.font = "500 10px Inter"; canvasCtx.fillText(`DITHER: ${targetDither.toFixed(2)}`, 0, 14); } canvasCtx.restore();
+                }
+
+                if (results.multiHandLandmarks.length > 1) {
+                    const hand2 = results.multiHandLandmarks[1]; const tips2 = [hand2[4], hand2[8], hand2[12], hand2[16], hand2[20]]; const cx2 = tips2.reduce((sum, p) => sum + p.x, 0) / 5; const cy2 = tips2.reduce((sum, p) => sum + p.y, 0) / 5; const t2 = hand2[4]; const i2 = hand2[8]; const pinchDist2 = Math.sqrt(Math.pow(t2.x - i2.x, 2) + Math.pow(t2.y - i2.y, 2)); targetChaos = pinchDist2 < 0.05 ? 0.0 : Math.min((pinchDist2 - 0.05) / 0.25, 1.0);
+                    const cx2Px = cx2 * w, cy2Px = cy2 * h; canvasCtx.fillStyle = '#3b82f6'; canvasCtx.strokeStyle = 'rgba(59,130,246,0.4)'; canvasCtx.lineWidth = 2; canvasCtx.beginPath(); canvasCtx.arc(cx2Px, cy2Px, 4, 0, 2 * Math.PI); canvasCtx.fill();
+                    tips2.forEach(tip => { const tx = tip.x * w, ty = tip.y * h; canvasCtx.beginPath(); canvasCtx.arc(tx, ty, 4, 0, 2 * Math.PI); canvasCtx.fill(); canvasCtx.beginPath(); canvasCtx.moveTo(cx2Px, cy2Px); canvasCtx.lineTo(tx, ty); canvasCtx.stroke(); });
+                    canvasCtx.save(); canvasCtx.translate(cx2Px, cy2Px - 35); canvasCtx.scale(-1, 1); canvasCtx.textAlign = "center"; canvasCtx.font = "600 14px 'PingFang SC', sans-serif"; canvasCtx.fillStyle = "#3b82f6"; canvasCtx.fillText("粒子混沌", 0, 0); canvasCtx.font = "500 10px Inter"; canvasCtx.fillText(`CHAOS: ${targetChaos.toFixed(2)}`, 0, 14); canvasCtx.restore();
+                } else { targetChaos = 0.0; }
+            } else { isHandDetected = false; targetDither = 0.0; targetRotationX = 0; targetRotationY = 0; targetChaos = 0.0; swipeState.isTracking = false; swipeState.flatFrames = 0; }
+            canvasCtx.restore();
+        }
+
+        window.a2_stopStream = () => { if (cameraUtils) cameraUtils.stop(); if (videoElement.srcObject) { videoElement.srcObject.getTracks().forEach(track => track.stop()); videoElement.srcObject = null; } isTrackingHands = false; document.getElementById('a2_cameraFeed').classList.add('hidden'); document.getElementById('a2_cameraInitUI').classList.remove('hidden'); document.getElementById('a2_startCamBtn').disabled = false; document.getElementById('a2_startCamBtn').innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>启用手势跟踪`; };
+        document.getElementById('a2_stopCamBtn').addEventListener('click', window.a2_stopStream);
+
+        document.getElementById('a2_startCamBtn').addEventListener('click', async () => {
+            document.getElementById('a2_loadingOverlay').classList.remove('hidden'); document.getElementById('a2_startCamBtn').disabled = true; document.getElementById('a2_startCamBtn').innerHTML = "初始化模型...";
+            try { if (!hands) { hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` }); hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 }); hands.onResults(onResults); } cameraUtils = new Camera(videoElement, { onFrame: async () => { await hands.send({ image: videoElement }); }, width: 480, height: 640 }); await cameraUtils.start(); document.getElementById('a2_loadingText').innerText = "等待摄像头画面..."; const sheet = document.getElementById('a2_sidebar'); if(sheet.closeSheet) sheet.closeSheet(); } catch(err) { document.getElementById('a2_loadingOverlay').classList.add('hidden'); document.getElementById('a2_startCamBtn').disabled = false; document.getElementById('a2_startCamBtn').innerHTML = "启动失败,点击重试"; }
+        });
+
+        const toggleFullscreen = (isPoster = false) => { const doc = window.document; const docEl = doc.documentElement; const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen; const cancel = doc.exitFullscreen || doc.webkitExitFullscreen; const isFull = doc.fullscreenElement || doc.webkitFullscreenElement; if (!isFull && !document.body.classList.contains('immersive-mode')) { if (req) req.call(docEl).catch(e=>{}); document.body.classList.add('immersive-mode'); window.closeAllSheets(); } else { if (cancel && isFull) cancel.call(doc); document.body.classList.remove('immersive-mode'); } };
+        document.getElementById('a2_fullscreenBtn').addEventListener('click', () => toggleFullscreen(false));
+        document.getElementById('a2_exitImmersiveBtn').addEventListener('click', () => { document.body.classList.remove('immersive-mode'); window.dispatchEvent(new Event('resize')); });
+
+        buildSingleScene(0); animate();
+    </script>
+
+    <!-- ========================================== -->
+    <!-- APP 3: 交互海报引擎 JS (完整保留)            -->
+    <!-- ========================================== -->
+    <script>
+        (function() {
+            const canvas = document.getElementById('a3_canvas'); const ctx = canvas.getContext('2d');
+            let isDarkMode = true; let animSpeed = 3.0; let unitScale = 2.3;
+            let dimensions = { width: 0, height: 0 }; let globalTime = 0; let layoutMode = 'landscape';
+            const camera = { x: 0, y: 0, zoom: 0.8, targetZoom: 0.8, isResettingZoom: false, initialized: false };
+            const prerenderedImages = []; const nodes = [];
+            let GRID_SIZE = 0, TOTAL_COLS = 0, TOTAL_ROWS = 0, gridW = 0, gridH = 0, screenCols = 0, screenRows = 0; let animationFrameId = null; let lastTime = 0;
+
+            document.getElementById('a3_toggleThemeBtn').addEventListener('click', (e) => { isDarkMode = !isDarkMode; e.target.innerText = isDarkMode ? '切换为白底模式' : '切换为黑底模式'; document.getElementById('a3_workspace').style.backgroundColor = isDarkMode ? '#050505' : '#ffffff'; });
+            document.getElementById('a3_speedSlider').addEventListener('input', (e) => { animSpeed = parseFloat(e.target.value); document.getElementById('a3_speedVal').innerText = animSpeed.toFixed(1) + 'x'; });
+            document.getElementById('a3_scaleSlider').addEventListener('input', (e) => { unitScale = parseFloat(e.target.value); document.getElementById('a3_scaleVal').innerText = unitScale.toFixed(1) + 'x'; });
+
+            const drawUnitChar = (tCtx, char, x, y, size, palette) => {
+                if (char === '.' || char === ' ') return; const cx = x + size / 2; const cy = y + size / 2; const c0 = palette[0] || '#fff'; const c1 = palette[1] || '#fff'; const c2 = palette[2] || '#fff';
+                const drawSolid = (c) => { tCtx.fillStyle = c; tCtx.fillRect(x, y, size, size); }; const drawCircle = (c) => { tCtx.fillStyle = c; tCtx.beginPath(); tCtx.arc(cx, cy, size/2, 0, Math.PI*2); tCtx.fill(); };
+                const drawGrid = (c) => { tCtx.fillStyle = c; const lt = size * 0.15; const cs = (size - 2 * lt) / 3; for(let i=0; i<3; i++) { for(let j=0; j<3; j++) { tCtx.fillRect(x + i*(cs+lt), y + j*(cs+lt), cs, cs); } } };
+                const drawStripes = (c1, c2, isH, hasGaps) => { const sw = size / 5; for(let i=0; i<5; i++) { if (hasGaps && i%2 !== 0) continue; tCtx.fillStyle = (i%2 === 0) ? c1 : c2; if (isH) { tCtx.fillRect(x, y + i*sw, size, sw); } else { tCtx.fillRect(x + i*sw, y, sw, size); } } };
+                const drawConcentric = (cO, cM, cI) => { const R = size/2; tCtx.fillStyle = cO; tCtx.beginPath(); tCtx.arc(cx, cy, R, 0, Math.PI*2); tCtx.fill(); tCtx.fillStyle = cM; tCtx.beginPath(); tCtx.arc(cx, cy, R*0.65, 0, Math.PI*2); tCtx.fill(); tCtx.fillStyle = cI; tCtx.beginPath(); tCtx.arc(cx, cy, R*0.35, 0, Math.PI*2); tCtx.fill(); };
+                const drawDashed = (c) => { const R = size/2; const rI = R * 0.65; tCtx.fillStyle = c; for(let i=0; i<8; i++) { const a1 = (i/8) * Math.PI*2; const a2 = a1 + (Math.PI*2/8) * 0.6; tCtx.beginPath(); tCtx.arc(cx, cy, R, a1, a2, false); tCtx.arc(cx, cy, rI, a2, a1, true); tCtx.closePath(); tCtx.fill(); } };
+                switch(char) { case 'S': drawSolid(c0); break; case 'A': drawSolid(c1); break; case 'B': drawSolid(c2); break; case 'G': drawGrid(c0); break; case 'H': drawGrid(c1); break; case 'J': drawGrid(c2); break; case '|': drawStripes(c0, c1, false, false); break; case '!': drawStripes(c1, c0, false, false); break; case 'I': drawStripes(c0, c2, false, false); break; case 'i': drawStripes(c2, c0, false, false); break; case '-': drawStripes(c0, c1, true, false); break; case '_': drawStripes(c1, c0, true, false); break; case '=': drawStripes(c0, c2, true, false); break; case '+': drawStripes(c2, c0, true, false); break; case 'U': drawStripes(c0, null, false, true); break; case 'V': drawStripes(c1, null, false, true); break; case 'W': drawStripes(c2, null, false, true); break; case 'E': drawStripes(c0, null, true, true); break; case 'F': drawStripes(c1, null, true, true); break; case 'R': drawStripes(c2, null, true, true); break; case 'O': drawConcentric(c0, c1, c0); break; case 'o': drawConcentric(c1, c0, c1); break; case 'Q': drawConcentric(c0, c2, c0); break; case 'q': drawConcentric(c1, c2, c1); break; case '*': drawCircle(c0); break; case '@': drawCircle(c1); break; case '#': drawCircle(c2); break; case 'D': drawDashed(c0); break; case 'd': drawDashed(c1); break; case 'b': drawDashed(c2); break; default: break; }
+            };
+
+            function initPrerender() {
+                window.GAFA_DATA.baseMaps.forEach((map, index) => {
+                    const c = document.createElement('canvas'); c.width = 256; c.height = 256; const cCtx = c.getContext('2d');
+                    const palette = window.GAFA_DATA.hexPalettes[Math.min(index, window.GAFA_DATA.hexPalettes.length - 1)]; const rows = map.length; const cols = map[0].length; const maxDim = Math.max(rows, cols); const cellSize = (256 * 0.95) / maxDim; const offsetX = (256 - cols * cellSize) / 2; const offsetY = (256 - rows * cellSize) / 2;
+                    for (let r = 0; r < rows; r++) { for (let col = 0; col < cols; col++) { drawUnitChar(cCtx, map[r][col], offsetX + col * cellSize, offsetY + r * cellSize, cellSize, palette); } }
+                    c.dominantColor = palette[0]; prerenderedImages.push(c);
+                });
+            }
+
+            class Ripple {
+                constructor(color, isSquare) { this.scale = 0.5; this.alpha = 1.0; this.color = color; this.isSquare = isSquare; this.life = 0; this.particles = Array.from({ length: 12 + Math.floor(Math.random() * 8) }, () => ({ angle: Math.random() * Math.PI * 2, speed: (0.8 + Math.random() * 1.5) * 0.6, dist: 10 + Math.random() * 10, size: 2 + Math.random() * 3 })); }
+                update(speedMulti) { this.life += speedMulti; this.scale += 0.009 * speedMulti; this.particles.forEach(p => { p.dist += p.speed * speedMulti; p.speed *= Math.pow(0.92, speedMulti); }); if (this.life > 30) this.alpha -= 0.009 * speedMulti; }
+                draw(tCtx, gridSize) { if (this.alpha <= 0) return; tCtx.save(); tCtx.globalAlpha = Math.max(0, this.alpha); tCtx.strokeStyle = this.color; tCtx.lineWidth = 2.5; tCtx.save(); tCtx.scale(this.scale, this.scale); tCtx.beginPath(); if (this.isSquare) { tCtx.rect(-gridSize/2, -gridSize/2, gridSize, gridSize); } else { tCtx.arc(0, 0, gridSize/2, 0, Math.PI * 2); } tCtx.stroke(); tCtx.restore(); tCtx.fillStyle = this.color; this.particles.forEach(p => { tCtx.beginPath(); tCtx.arc(Math.cos(p.angle) * p.dist, Math.sin(p.angle) * p.dist, p.size, 0, Math.PI * 2); tCtx.fill(); }); tCtx.restore(); }
+            }
+
+            class NodeEntity {
+                constructor(col, row) { this.col = col; this.row = row; this.x = col * GRID_SIZE; this.y = row * GRID_SIZE; this.scale = 0; this.state = 'idle'; this.timer = 0; this.imageIndex = 1 + Math.floor(Math.random() * 26); const defaultColors = ['#E63946', '#457B9D', '#2A9D8F', '#E9C46A', '#F4A261']; this.color = defaultColors[Math.floor(Math.random() * defaultColors.length)]; this.isOrdered = false; this.rotation = 0; this.rotationSpeed = 0; this.ripples = []; this.fireworkTriggered = false; this.forceFirework = false; this.breatheType = 0; this.breatheOffset = 0; this.breatheSpeed = 0; this.breatheTimer = 0; }
+                trigger(isOrdered, allNodes, isUserTriggered = false) {
+                    if (this.state === 'idle') {
+                        this.state = 'growing'; this.isOrdered = isOrdered; this.fireworkTriggered = false; this.forceFirework = isUserTriggered; this.ripples = []; const numImages = prerenderedImages.length > 0 ? prerenderedImages.length : 27; this.imageIndex = 1 + Math.floor(Math.random() * (numImages - 1)); const globalSpeedFactor = 0.6; const speedMultiplier = Math.random() > 0.85 ? 2.5 : 1; this.growSpeed = (0.008 + Math.random() * 0.015) * speedMultiplier * globalSpeedFactor; this.shrinkSpeed = (0.008 + Math.random() * 0.015) * speedMultiplier * globalSpeedFactor; this.breatheType = Math.random() < 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0; this.breatheSpeed = (0.015 + Math.random() * 0.02) * globalSpeedFactor; this.breatheOffset = 0; this.breatheTimer = 0;
+                        if (isOrdered) { this.rotation = 0; this.rotationSpeed = 0; this.maxScale = 0.65; this.holdTime = 99999; } else { this.rotation = Math.random() * Math.PI * 2; let sizeTier = Math.random(); if (isUserTriggered) { if (sizeTier < 0.3) sizeTier = 0.05; else if (sizeTier < 0.7) sizeTier = 0.3; else sizeTier = 0.8; } const dir = Math.random() > 0.5 ? 1 : -1; if (sizeTier < 0.10) { this.maxScale = 1.0 + Math.random() * 0.6; this.rotationSpeed = dir * (0.003 + Math.random() * 0.006) * globalSpeedFactor; this.holdTime = 80 + Math.random() * 60; } else if (sizeTier < 0.55) { this.maxScale = 0.5 + Math.random() * 0.3; this.rotationSpeed = dir * (0.005 + Math.random() * 0.008) * globalSpeedFactor; this.holdTime = 100 + Math.random() * 80; } else { this.maxScale = 0.2 + Math.random() * 0.2; this.rotationSpeed = dir * (0.008 + Math.random() * 0.015) * globalSpeedFactor; this.holdTime = 60 + Math.random() * 100; } }
+                    }
+                }
+                update(currentPhase, speedMulti, tick) {
+                    this.ripples.forEach(r => r.update(speedMulti)); this.ripples = this.ripples.filter(r => r.alpha > 0);
+                    if (this.state === 'growing') {
+                        this.scale += this.growSpeed * speedMulti; this.rotation += this.rotationSpeed * speedMulti;
+                        if (this.scale >= this.maxScale) { this.scale = this.maxScale; this.state = 'holding'; this.timer = 0; if (!this.fireworkTriggered && !this.isOrdered && (this.maxScale >= 0.9 || this.forceFirework)) { let fColor = this.color; if (prerenderedImages.length > 0) { const imgCanvas = prerenderedImages[this.imageIndex % prerenderedImages.length]; if (imgCanvas && imgCanvas.dominantColor) fColor = imgCanvas.dominantColor; } this.ripples.push(new Ripple(fColor, Math.random() > 0.5)); this.fireworkTriggered = true; } }
+                    } else if (this.state === 'holding') {
+                        this.rotation += this.rotationSpeed * speedMulti;
+                        if (this.isOrdered) { if (tick <= 21000) { this.breatheOffset = 0; this.breatheTimer = 0; } else if (this.breatheType !== 0) { this.breatheTimer += speedMulti; this.breatheOffset = Math.sin(this.breatheTimer * this.breatheSpeed) * 0.05 * this.breatheType; } } else { if (this.breatheType !== 0) { this.breatheOffset = Math.sin(this.timer * this.breatheSpeed) * 0.05 * this.breatheType; } }
+                        this.timer += speedMulti; if (this.timer > this.holdTime) { this.state = 'shrinking'; this.scale += this.breatheOffset; this.breatheOffset = 0; }
+                    } else if (this.state === 'shrinking') { this.scale -= this.shrinkSpeed * speedMulti; this.rotation += this.rotationSpeed * speedMulti; if (this.scale <= 0) { this.scale = 0; this.state = 'idle'; } }
+                }
+                draw(tCtx, darkTheme) {
+                    if (this.state === 'idle' && this.ripples.length === 0) return; tCtx.save(); tCtx.translate(this.x, this.y); this.ripples.forEach(r => r.draw(tCtx, GRID_SIZE * unitScale)); let currentScale = this.scale; if (this.state === 'holding') currentScale += this.breatheOffset;
+                    if (currentScale > 0) { tCtx.scale(currentScale, currentScale); tCtx.rotate(this.rotation); if (prerenderedImages.length > 0) { const imgCanvas = prerenderedImages[this.imageIndex % prerenderedImages.length]; if (imgCanvas) { const size = GRID_SIZE * 0.85 * unitScale; tCtx.drawImage(imgCanvas, -size/2, -size/2, size, size); } } else { const fbSize = 40 * unitScale; tCtx.fillStyle = this.color; tCtx.globalAlpha = 0.8; tCtx.beginPath(); tCtx.rect(-fbSize/2, -fbSize/2, fbSize, fbSize); tCtx.fill(); tCtx.fillStyle = darkTheme ? '#fff' : '#111'; tCtx.beginPath(); tCtx.arc(0, 0, 8 * unitScale, 0, Math.PI * 2); tCtx.fill(); } } tCtx.restore();
+                }
+            }
+
+            function updateSize() {
+                const winW = window.innerWidth; const winH = window.innerHeight; const mode = winW >= winH ? 'landscape' : 'portrait'; if (layoutMode !== mode) layoutMode = mode;
+                dimensions.width = winW; dimensions.height = winH; screenCols = layoutMode === 'portrait' ? 4 : 7; screenRows = layoutMode === 'portrait' ? 7 : 4;
+                GRID_SIZE = Math.max(dimensions.width / screenCols, dimensions.height / screenRows); const MAP_MULT = 6; TOTAL_COLS = screenCols * MAP_MULT; TOTAL_ROWS = screenRows * MAP_MULT; gridW = TOTAL_COLS * GRID_SIZE; gridH = TOTAL_ROWS * GRID_SIZE;
+                nodes.length = 0; for (let c = 0; c < TOTAL_COLS; c++) { for (let r = 0; r < TOTAL_ROWS; r++) { nodes.push(new NodeEntity(c, r)); } }
+                if (!camera.initialized && gridW > 0) { camera.x = gridW / 2; camera.y = gridH / 2; camera.targetZoom = camera.zoom; camera.initialized = true; }
+            }
+            window.addEventListener('resize', updateSize);
+
+            // 移动端 Touch 拖拽与缩放
+            let isDragging = false; let lastPos = {x:0, y:0}; let initialPinchDist = 0; let initialZoom = 1; let lastTap = 0; let moved = false;
+            canvas.addEventListener('touchstart', (e) => {
+                if(e.touches.length === 1) { 
+                    const now = Date.now(); if (now - lastTap < 300) { camera.isResettingZoom = true; camera.targetZoom = 0.8; lastTap = 0; return; } lastTap = now; camera.isResettingZoom = false; 
+                    isDragging = true; moved = false; lastPos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+                }
+                else if(e.touches.length === 2) { isDragging = false; initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); initialZoom = camera.zoom; }
+            }, {passive:false});
+            canvas.addEventListener('touchmove', (e) => {
+                if(window.SystemState.activeModule !== 'poster') return; e.preventDefault();
+                if(isDragging && e.touches.length === 1) { 
+                    const dx = e.touches[0].clientX - lastPos.x; const dy = e.touches[0].clientY - lastPos.y; 
+                    if(Math.abs(dx)>5 || Math.abs(dy)>5) moved = true;
+                    camera.x -= dx / camera.zoom; camera.y -= dy / camera.zoom; lastPos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+                }
+                else if(e.touches.length === 2) { const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); camera.targetZoom = camera.zoom = Math.max(0.3, Math.min(initialZoom * (currentDist / initialPinchDist), 4.0)); }
+            }, {passive:false});
+            canvas.addEventListener('touchend', (e) => { 
+                if (isDragging && !moved && e.changedTouches.length === 1) {
+                    const tick = globalTime % 30000; if (tick >= 18333) return; 
+                    const rect = canvas.getBoundingClientRect(); const mouseX = e.changedTouches[0].clientX - rect.left; const mouseY = e.changedTouches[0].clientY - rect.top;
+                    const worldX = camera.x + (mouseX - dimensions.width / 2) / camera.zoom; const worldY = camera.y + (mouseY - dimensions.height / 2) / camera.zoom;
+                    const localX = ((worldX % gridW) + gridW) % gridW; const localY = ((worldY % gridH) + gridH) % gridH;
+                    const col = Math.round(localX / GRID_SIZE) % TOTAL_COLS; const row = Math.round(localY / GRID_SIZE) % TOTAL_ROWS;
+                    const targetNode = nodes.find(n => n.col === col && n.row === row); if (targetNode) { targetNode.state = 'idle'; targetNode.scale = 0; targetNode.trigger(false, nodes, true); }
+                }
+                isDragging = false; 
+            });
+
+            const drawInfiniteGrid = (darkTheme, left, right, top, bottom) => {
+                ctx.save(); ctx.strokeStyle = darkTheme ? `rgba(255, 255, 255, 0.15)` : `rgba(0, 0, 0, 0.06)`; ctx.lineWidth = 1;
+                for (let x = Math.floor(left / GRID_SIZE) * GRID_SIZE; x <= right; x += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); }
+                for (let y = Math.floor(top / GRID_SIZE) * GRID_SIZE; y <= bottom; y += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke(); }
+                const cMin1 = Math.floor((left - bottom) / GRID_SIZE) * GRID_SIZE; const cMax1 = Math.ceil((right - top) / GRID_SIZE) * GRID_SIZE; for (let c = cMin1; c <= cMax1; c += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(left, left - c); ctx.lineTo(right, right - c); ctx.stroke(); }
+                const cMin2 = Math.floor((left + top) / GRID_SIZE) * GRID_SIZE; const cMax2 = Math.ceil((right + bottom) / GRID_SIZE) * GRID_SIZE; for (let c = cMin2; c <= cMax2; c += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(left, c - left); ctx.lineTo(right, c - right); ctx.stroke(); }
+                ctx.restore();
+            };
+
+            document.getElementById('a3_fullscreenBtn').addEventListener('click', () => { const doc = window.document; const docEl = doc.documentElement; const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen; if(req) req.call(docEl); document.body.classList.add('immersive-mode'); window.closeAllSheets(); });
+            document.getElementById('a3_exitImmersiveBtn').addEventListener('click', () => { document.body.classList.remove('immersive-mode'); });
+
+            const render = (time) => {
+                if (!lastTime) lastTime = time; let deltaTime = time - lastTime; lastTime = time; if (deltaTime > 100) deltaTime = 16.666;
+                if (window.SystemState.activeModule === 'poster') {
+                    const deltaMs = deltaTime * animSpeed; globalTime += deltaMs; const timeRatio = deltaMs / 16.6667; const activeRatio = Math.min(window.devicePixelRatio, 2);
+                    if (canvas.width !== Math.floor(dimensions.width * activeRatio)) { canvas.width = Math.floor(dimensions.width * activeRatio); canvas.height = Math.floor(dimensions.height * activeRatio); }
+                    ctx.save(); ctx.scale(activeRatio, activeRatio); ctx.fillStyle = isDarkMode ? '#000000' : '#ffffff'; ctx.fillRect(0, 0, dimensions.width, dimensions.height);
+                    
+                    if (camera.isResettingZoom) { camera.zoom += (camera.targetZoom - camera.zoom) * 0.12; camera.x += (gridW / 2 - camera.x) * 0.12; camera.y += (gridH / 2 - camera.y) * 0.12; if (Math.abs(camera.zoom - camera.targetZoom) < 0.005 && Math.abs(camera.x - gridW / 2) < 0.5) { camera.zoom = camera.targetZoom; camera.x = gridW / 2; camera.y = gridH / 2; camera.isResettingZoom = false; } }
+                    ctx.translate(dimensions.width / 2, dimensions.height / 2); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-camera.x, -camera.y);
+                    
+                    const padding = GRID_SIZE; const left = camera.x - (dimensions.width / 2) / camera.zoom - padding; const right = camera.x + (dimensions.width / 2) / camera.zoom + padding; const top = camera.y - (dimensions.height / 2) / camera.zoom - padding; const bottom = camera.y + (dimensions.height / 2) / camera.zoom + padding;
+                    drawInfiniteGrid(isDarkMode, left, right, top, bottom);
+
+                    const tick = globalTime % 30000; let currentPhase = 'chaos';
+                    if (tick < 8333) currentPhase = 'chaos'; else if (tick < 18333) currentPhase = 'transition'; else if (tick < 23333) currentPhase = 'order_hold'; else currentPhase = 'order_clear';
+                    const scaleRate = (TOTAL_COLS * TOTAL_ROWS) / (screenCols * screenRows); 
+
+                    if (currentPhase === 'chaos') { let expectedSpawns = 0.003 * deltaMs * scaleRate; let spawns = Math.floor(expectedSpawns); if (Math.random() < expectedSpawns - spawns) spawns++; for(let i=0; i<spawns; i++) { const idleNodes = nodes.filter(n => n.state === 'idle'); if (idleNodes.length > 0) idleNodes[Math.floor(Math.random() * idleNodes.length)].trigger(false, nodes); } } 
+                    else if (currentPhase === 'transition') { let expectedSpawns = 0.005 * deltaMs * scaleRate; let spawns = Math.floor(expectedSpawns); if (Math.random() < expectedSpawns - spawns) spawns++; for(let i=0; i<spawns; i++) { const idleNodes = nodes.filter(n => n.state === 'idle'); if (idleNodes.length > 0) idleNodes[Math.floor(Math.random() * idleNodes.length)].trigger(true, nodes); } } 
+                    else if (currentPhase === 'order_hold') { const idleNodes = nodes.filter(n => n.state === 'idle'); if (idleNodes.length > 0) idleNodes.forEach(n => n.trigger(true, nodes)); } 
+                    else if (currentPhase === 'order_clear') { let expectedClears = 0.0075 * deltaMs * scaleRate; let clears = Math.floor(expectedClears); if (Math.random() < expectedClears - clears) clears++; for(let i=0; i<clears; i++) { const holdingNodes = nodes.filter(n => n.state === 'holding'); if (holdingNodes.length > 0) { const n = holdingNodes[Math.floor(Math.random() * holdingNodes.length)]; n.state = 'shrinking'; n.scale += n.breatheOffset; n.breatheOffset = 0; n.shrinkSpeed = (0.01 + Math.random() * 0.015) * 0.7; } } if (tick > 26666) { let expectedLateSpawns = 0.0024 * deltaMs * scaleRate; let spawns = Math.floor(expectedLateSpawns); if (Math.random() < expectedLateSpawns - spawns) spawns++; for(let i=0; i<spawns; i++) { const idleNodes = nodes.filter(n => n.state === 'idle'); if (idleNodes.length > 0) idleNodes[Math.floor(Math.random() * idleNodes.length)].trigger(false, nodes); } } }
+
+                    nodes.forEach(node => node.update(currentPhase, timeRatio, tick));
+
+                    const startX = Math.floor(left / gridW) * gridW; const endX = Math.floor(right / gridW) * gridW; const startY = Math.floor(top / gridH) * gridH; const endY = Math.floor(bottom / gridH) * gridH; const paddingDraw = GRID_SIZE * unitScale * 1.5;
+                    for (let bx = startX; bx <= endX; bx += gridW) { for (let by = startY; by <= endY; by += gridH) { ctx.save(); ctx.translate(bx, by); for (let i = 0; i < nodes.length; i++) { const node = nodes[i]; const worldX = bx + node.x; const worldY = by + node.y; if (worldX >= left - paddingDraw && worldX <= right + paddingDraw && worldY >= top - paddingDraw && worldY <= bottom + paddingDraw) { node.draw(ctx, isDarkMode); } } ctx.restore(); } }
+                    ctx.restore(); 
+                }
+                animationFrameId = requestAnimationFrame(render);
+            };
+
+            initPrerender(); updateSize(); animationFrameId = requestAnimationFrame(render);
+        })();
+    </script>
+</body>
+</html>
