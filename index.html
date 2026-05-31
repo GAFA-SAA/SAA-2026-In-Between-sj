@@ -1178,9 +1178,28 @@
 
             function renderArt(isStream = false) {
                 if (!isStream && sourceMode === 'image' && !originalImage) return; if (!isStream && sourceMode === 'batch' && batchImages.length === 0) return; if (isStream && offscreenCanvas.width === 0) return;
-                const data = getArtGridData(); if (artCanvas.width !== data.cols * data.blockSize) { artCanvas.width = data.cols * data.blockSize; artCanvas.height = data.rows * data.blockSize; }
+                const data = getArtGridData(); 
+                
+                let drawScale = 1;
+                if (isRecording) {
+                    const baseWidth = data.cols * data.blockSize;
+                    const baseHeight = data.rows * data.blockSize;
+                    // 2K 分辨率 (2560x1440) 计算倍数，最高限制8倍防止崩溃
+                    drawScale = Math.min(Math.ceil(Math.max(2560 / baseWidth, 1440 / baseHeight, 1)), 8);
+                }
+
+                const targetW = data.cols * data.blockSize * drawScale;
+                const targetH = data.rows * data.blockSize * drawScale;
+
+                if (artCanvas.width !== targetW) { artCanvas.width = targetW; artCanvas.height = targetH; }
                 artCanvas.style.backgroundColor = data.bgColor; ctx.fillStyle = data.bgColor; ctx.fillRect(0, 0, artCanvas.width, artCanvas.height);
-                for (let y = 0; y < data.rows; y++) { for (let x = 0; x < data.cols; x++) { const cell = data.grid[y][x]; drawStrictGeometry(ctx, null, x * data.blockSize, y * data.blockSize, data.blockSize, cell.pattern, cell.c1, cell.c2, data.bgColor); } }
+                
+                for (let y = 0; y < data.rows; y++) { 
+                    for (let x = 0; x < data.cols; x++) { 
+                        const cell = data.grid[y][x]; 
+                        drawStrictGeometry(ctx, null, x * data.blockSize * drawScale, y * data.blockSize * drawScale, data.blockSize * drawScale, cell.pattern, cell.c1, cell.c2, data.bgColor); 
+                    } 
+                }
             }
 
             function drawStrictGeometry(ctx, doc, x, y, size, index, c1, c2, baseBgColor) {
@@ -1210,10 +1229,62 @@
                 btnText.innerText = originalText; mainActionBtn.classList.remove('opacity-75'); isExporting = false; if (currentBatchIndex >= 0) { selectBatchImage(currentBatchIndex); }
             }
 
+            // ========================================================
+            // 修改点：支持直接导出 2K、30帧、30Mbps码率的 MP4 录制功能
+            // ========================================================
             function toggleRecording() {
                 if (!isRecording) {
-                    try { const stream = artCanvas.captureStream(30); mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); }; mediaRecorder.onstop = () => { const blob = new Blob(recordedChunks, { type: 'video/webm' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = `matrix-studio-video-${Date.now()}.webm`; document.body.appendChild(a); a.click(); setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100); recordedChunks = []; }; mediaRecorder.start(); isRecording = true; updateActionButtonUI(); } catch (e) { alert("浏览器不支持视频录制功能"); }
-                } else { if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); } isRecording = false; updateActionButtonUI(); }
+                    try {
+                        isRecording = true;
+                        // 强制重新渲染一帧触发2K画布物理重构缩放
+                        renderArt(sourceMode !== 'image' && sourceMode !== 'batch');
+
+                        // 强制捕获 30帧 (30FPS)
+                        const stream = artCanvas.captureStream(30);
+                        
+                        // 尝试使用 mp4 格式，设置极高比特率 (30Mbps) 消除马赛克
+                        let options = { mimeType: 'video/mp4', videoBitsPerSecond: 30000000 };
+                        
+                        // 检查浏览器是否支持 MP4，不支持则回退到 WebM (同样维持高码率)
+                        if (!MediaRecorder.isTypeSupported('video/mp4')) {
+                            console.warn('当前浏览器不支持直接录制 MP4，将尝试回退到 WebM');
+                            options = { mimeType: 'video/webm', videoBitsPerSecond: 30000000 };
+                        }
+
+                        mediaRecorder = new MediaRecorder(stream, options);
+                        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                        mediaRecorder.onstop = () => {
+                            const isMp4 = mediaRecorder.mimeType.includes('mp4');
+                            const blobType = isMp4 ? 'video/mp4' : 'video/webm';
+                            const extension = isMp4 ? 'mp4' : 'webm';
+
+                            const blob = new Blob(recordedChunks, { type: blobType });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            
+                            // 导出文件名加入 2k-30fps 标识
+                            a.download = `matrix-studio-2k-30fps-${Date.now()}.${extension}`;
+                            
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+                            recordedChunks = [];
+                        };
+                        mediaRecorder.start();
+                        updateActionButtonUI();
+                    } catch (e) { 
+                        isRecording = false;
+                        alert("浏览器不支持视频录制功能"); 
+                    }
+                } else {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+                    isRecording = false;
+                    // 录制结束，恢复普通画布大小以节省性能
+                    renderArt(sourceMode !== 'image' && sourceMode !== 'batch');
+                    updateActionButtonUI();
+                }
             }
 
         })();
