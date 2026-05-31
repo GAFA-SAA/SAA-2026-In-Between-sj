@@ -1184,8 +1184,8 @@
                 if (isRecording) {
                     const baseWidth = data.cols * data.blockSize;
                     const baseHeight = data.rows * data.blockSize;
-                    // 2K 分辨率 (2560x1440) 计算倍数，最高限制8倍防止崩溃
-                    drawScale = Math.min(Math.ceil(Math.max(2560 / baseWidth, 1440 / baseHeight, 1)), 8);
+                    // 1K (1080p) 分辨率 (1920x1080) 计算倍数，最高限制8倍防止崩溃
+                    drawScale = Math.min(Math.ceil(Math.max(1920 / baseWidth, 1080 / baseHeight, 1)), 8);
                 }
 
                 const targetW = data.cols * data.blockSize * drawScale;
@@ -1230,25 +1230,32 @@
             }
 
             // ========================================================
-            // 修改点：支持直接导出 2K、30帧、30Mbps码率的 MP4 录制功能
+            // 修改点：支持直接导出 1K(1080p)、30帧、高码率的 MP4 录制功能
             // ========================================================
             function toggleRecording() {
                 if (!isRecording) {
                     try {
                         isRecording = true;
-                        // 强制重新渲染一帧触发2K画布物理重构缩放
+                        // 强制重新渲染一帧触发 1K 画布物理重构缩放
                         renderArt(sourceMode !== 'image' && sourceMode !== 'batch');
 
                         // 强制捕获 30帧 (30FPS)
                         const stream = artCanvas.captureStream(30);
-                        
-                        // 尝试使用 mp4 格式，设置极高比特率 (30Mbps) 消除马赛克
-                        let options = { mimeType: 'video/mp4', videoBitsPerSecond: 30000000 };
-                        
-                        // 检查浏览器是否支持 MP4，不支持则回退到 WebM (同样维持高码率)
-                        if (!MediaRecorder.isTypeSupported('video/mp4')) {
+
+                        // 尝试使用 mp4 格式，设置极高比特率 (20Mbps) 消除马赛克
+                        let options = { mimeType: 'video/mp4', videoBitsPerSecond: 20000000 };
+
+                        // 优先检查更具体的 MP4 编码格式以增加兼容性
+                        if (MediaRecorder.isTypeSupported('video/mp4;codecs="avc1.42E01E"')) {
+                            options.mimeType = 'video/mp4;codecs="avc1.42E01E"';
+                        } else if (MediaRecorder.isTypeSupported('video/mp4;codecs="h264"')) {
+                            options.mimeType = 'video/mp4;codecs="h264"';
+                        } else if (!MediaRecorder.isTypeSupported('video/mp4')) {
                             console.warn('当前浏览器不支持直接录制 MP4，将尝试回退到 WebM');
-                            options = { mimeType: 'video/webm', videoBitsPerSecond: 30000000 };
+                            options = { mimeType: 'video/webm;codecs="vp9"', videoBitsPerSecond: 20000000 };
+                            if(!MediaRecorder.isTypeSupported(options.mimeType)) {
+                                 options.mimeType = 'video/webm';
+                            }
                         }
 
                         mediaRecorder = new MediaRecorder(stream, options);
@@ -1264,8 +1271,8 @@
                             a.style.display = 'none';
                             a.href = url;
                             
-                            // 导出文件名加入 2k-30fps 标识
-                            a.download = `matrix-studio-2k-30fps-${Date.now()}.${extension}`;
+                            // 导出文件名加入 1k-30fps 标识
+                            a.download = `matrix-studio-1k-30fps-${Date.now()}.${extension}`;
                             
                             document.body.appendChild(a);
                             a.click();
